@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+*.user
+src/AIRecruiter.API/App_Data/
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# IDE
+.vs/
+.vscode/
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db

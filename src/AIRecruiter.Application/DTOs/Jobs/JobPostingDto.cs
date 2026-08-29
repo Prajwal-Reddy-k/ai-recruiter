@@ -1,0 +1,24 @@
+namespace AIRecruiter.Application.DTOs.Jobs;
+
+public record JobPostingDto(
+    int Id,
+    string Title,
+    string Description,
+    string? RequiredSkillsCsv,
+    int? MinExperienceYears,
+    int? MaxExperienceYears,
+    decimal? MinSalary,
+    decimal? MaxSalary,
+    string? City,
+    string? State,
+    string? Locality,
+    bool IsRemote,
+    string DisplayLocation,
+    string JobType,
+    string Status,
+    int CompanyId,
+    string CompanyName,
+    string? CompanyLogoUrl,
+    DateTime CreatedAt,
+    int ViewCount,
+    DateTime? PublishedAt);

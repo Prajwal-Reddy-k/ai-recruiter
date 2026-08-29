@@ -1,0 +1,22 @@
+{
+  "states": [
+    { "name": "Karnataka", "cities": ["Bengaluru", "Mysuru", "Mangaluru", "Hubballi"] },
+    { "name": "Telangana", "cities": ["Hyderabad", "Warangal"] },
+    { "name": "Maharashtra", "cities": ["Pune", "Mumbai", "Nagpur", "Nashik"] },
+    { "name": "Delhi", "cities": ["Delhi NCR", "New Delhi"] },
+    { "name": "Tamil Nadu", "cities": ["Chennai", "Coimbatore", "Madurai"] },
+    { "name": "Gujarat", "cities": ["Ahmedabad", "Surat", "Vadodara"] },
+    { "name": "Kerala", "cities": ["Kochi", "Thiruvananthapuram", "Kozhikode"] },
+    { "name": "West Bengal", "cities": ["Kolkata", "Howrah"] },
+    { "name": "Rajasthan", "cities": ["Jaipur", "Udaipur", "Jodhpur"] },
+    { "name": "Madhya Pradesh", "cities": ["Indore", "Bhopal"] },
+    { "name": "Haryana", "cities": ["Gurugram", "Faridabad"] },
+    { "name": "Uttar Pradesh", "cities": ["Noida", "Lucknow", "Kanpur"] },
+    { "name": "Chandigarh", "cities": ["Chandigarh"] },
+    { "name": "Punjab", "cities": ["Ludhiana", "Amritsar"] },
+    { "name": "Andhra Pradesh", "cities": ["Visakhapatnam", "Vijayawada"] },
+    { "name": "Bihar", "cities": ["Patna"] },
+    { "name": "Odisha", "cities": ["Bhubaneswar"] },
+    { "name": "Assam", "cities": ["Guwahati"] }
+  ]
+}

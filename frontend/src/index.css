@@ -1,0 +1,163 @@
+:root {
+  /* Brand */
+  --nav-bg: #1a1d2e;
+  --nav-bg-hover: #262a40;
+  --nav-text: #e8e9f0;
+  --nav-text-muted: #9ca0b8;
+
+  --color-primary: #059669;
+  --color-primary-dark: #047857;
+  --color-primary-light: #ecfdf5;
+
+  --color-accent: #ff6b57;
+  --color-accent-light: #fff1ee;
+
+  --color-warning: #d97706;
+  --color-warning-light: #fffbeb;
+  --color-success: #059669;
+  --color-success-light: #ecfdf5;
+  --color-danger: #dc2626;
+  --color-danger-light: #fef2f2;
+  --color-info: #4338ca;
+  --color-info-light: #eef2ff;
+
+  /* Neutrals */
+  --bg-page: #f6f7f9;
+  --bg-card: #ffffff;
+  --bg-subtle: #f0f1f4;
+  --border: #e3e5ea;
+  --border-strong: #cdd0d9;
+  --text: #1f2430;
+  --text-muted: #62697a;
+  --text-faint: #8b91a1;
+
+  /* Typography */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-xs: 0.75rem;
+  --font-sm: 0.8125rem;
+  --font-base: 0.9375rem;
+  --font-md: 1.0625rem;
+  --font-lg: 1.25rem;
+  --font-xl: 1.5rem;
+  --font-2xl: 1.875rem;
+  --font-3xl: 2.375rem;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Spacing (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Radius & shadow */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 22, 30, 0.06);
+  --shadow-md: 0 4px 12px rgba(20, 22, 30, 0.08);
+  --shadow-lg: 0 12px 32px rgba(20, 22, 30, 0.12);
+
+  --header-height: 64px;
+  --max-width: 1200px;
+
+  color-scheme: light;
+  font: var(--weight-normal) var(--font-base) / 1.55 var(--font-sans);
+  color: var(--text);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+  line-height: 1.25;
+}
+
+h1 {
+  font-size: var(--font-3xl);
+}
+h2 {
+  font-size: var(--font-xl);
+}
+h3 {
+  font-size: var(--font-lg);
+}
+h4 {
+  font-size: var(--font-md);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* Accessible keyboard focus outline everywhere */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --font-3xl: 1.875rem;
+    --font-2xl: 1.5rem;
+  }
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AIRecruiter.API/AIRecruiter.API.csproj" />
+    <Project Path="src/AIRecruiter.Application/AIRecruiter.Application.csproj" />
+    <Project Path="src/AIRecruiter.Domain/AIRecruiter.Domain.csproj" />
+    <Project Path="src/AIRecruiter.Infrastructure/AIRecruiter.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AIRecruiter.UnitTests/AIRecruiter.UnitTests.csproj" />
+  </Folder>
+</Solution>
