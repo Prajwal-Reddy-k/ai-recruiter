@@ -18,6 +18,7 @@ interface FieldErrors {
 interface LocationState {
   prefillEmail?: string;
   justRegistered?: boolean;
+  passwordReset?: boolean;
 }
 
 function dashboardPathForRole(role: UserRole): string {
@@ -91,6 +92,7 @@ export default function LoginPage() {
           <p>Enter your credentials to access your dashboard.</p>
 
           {state.justRegistered && <p className="success" style={{ marginBottom: "1.25rem" }}>Account created — sign in to continue.</p>}
+          {state.passwordReset && <p className="success" style={{ marginBottom: "1.25rem" }}>Password updated successfully. Please sign in with your new password.</p>}
 
           <form onSubmit={handleSubmit} noValidate>
             <FormField label="Email" htmlFor="login-email" error={fieldErrors.email}>
@@ -110,6 +112,12 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </FormField>
+
+            <p style={{ marginTop: "-0.5rem", marginBottom: "1.25rem" }}>
+              <Link to="/forgot-password" className="link-button" style={{ fontSize: "var(--font-sm)" }}>
+                Forgot password?
+              </Link>
+            </p>
 
             {fieldErrors.general && <p className="error" style={{ marginBottom: "1rem" }}>{fieldErrors.general}</p>}
 

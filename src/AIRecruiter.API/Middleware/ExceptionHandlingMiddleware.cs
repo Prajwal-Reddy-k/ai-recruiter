@@ -25,9 +25,15 @@ public class ExceptionHandlingMiddleware
             context.Response.ContentType = "application/problem+json";
             context.Response.StatusCode = ex.StatusCode;
 
-            if (ex is ExternalServiceUnavailableException { RetryAfterSeconds: not null } svcEx)
+            var retryAfterSeconds = ex switch
             {
-                context.Response.Headers.RetryAfter = svcEx.RetryAfterSeconds!.Value.ToString();
+                ExternalServiceUnavailableException { RetryAfterSeconds: not null } svcEx => svcEx.RetryAfterSeconds,
+                RateLimitedException { RetryAfterSeconds: not null } rlEx => rlEx.RetryAfterSeconds,
+                _ => null,
+            };
+            if (retryAfterSeconds is not null)
+            {
+                context.Response.Headers.RetryAfter = retryAfterSeconds.Value.ToString();
             }
 
             var problem = new ProblemDetails

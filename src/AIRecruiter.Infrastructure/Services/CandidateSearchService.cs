@@ -55,7 +55,7 @@ public class CandidateSearchService : ICandidateSearchService
 
         var applications = await _db.JobApplications
             .Include(a => a.JobPosting).ThenInclude(j => j.RecruiterProfile)
-            .Include(a => a.Interviews).ThenInclude(i => i.Slots)
+            .Include(a => a.Interviews)
             .Where(a => a.CandidateProfileId == candidateProfileId && a.JobPosting.CompanyId == companyId)
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync(ct);
@@ -79,7 +79,7 @@ public class CandidateSearchService : ICandidateSearchService
             a.Interviews.Select(i => new InterviewSummaryDto(
                 i.Id,
                 i.Status.ToString(),
-                i.Slots.Where(s => s.IsSelected).Select(s => (DateTime?)s.StartUtc).FirstOrDefault()))
+                i.Status == InterviewStatus.Scheduled ? i.ScheduledStartUtc : null))
                 .ToList()))
             .ToList();
 

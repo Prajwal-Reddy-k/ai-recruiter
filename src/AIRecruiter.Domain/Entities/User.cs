@@ -12,6 +12,13 @@ public class User : BaseEntity
     public UserRole Role { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>Rotated whenever the user's password is reset via the forgot-password flow.
+    /// Embedded as a JWT claim and re-checked against this value on every request, so a
+    /// password reset invalidates any JWT issued before it — the closest thing to session
+    /// revocation this stateless-JWT design supports without a token blocklist.</summary>
+    public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
+
     public CandidateProfile? CandidateProfile { get; set; }
     public RecruiterProfile? RecruiterProfile { get; set; }
+    public ICollection<PasswordResetCode> PasswordResetCodes { get; set; } = new List<PasswordResetCode>();
 }

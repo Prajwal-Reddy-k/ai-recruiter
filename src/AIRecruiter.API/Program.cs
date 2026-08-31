@@ -5,6 +5,7 @@ using AIRecruiter.Infrastructure;
 using AIRecruiter.Infrastructure.Options;
 using AIRecruiter.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -32,7 +33,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddApplicationServices();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
@@ -53,6 +54,36 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtOptions.Issuer,
         ValidAudience = jwtOptions.Audience,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.Secret))
+    };
+
+    // A password reset rotates User.SecurityStamp; comparing it here against the stamp
+    // embedded in the token at issuance is what makes a reset invalidate every JWT that
+    // was issued before it, despite JWTs otherwise being stateless/unrevocable.
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var userIdClaim = context.Principal?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                ?? context.Principal?.FindFirst("sub")?.Value;
+            var tokenStamp = context.Principal?.FindFirst("securityStamp")?.Value;
+
+            if (userIdClaim is null || tokenStamp is null || !int.TryParse(userIdClaim, out var userId))
+            {
+                context.Fail("Invalid token.");
+                return;
+            }
+
+            var db = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            var currentStamp = await db.Users
+                .Where(u => u.Id == userId)
+                .Select(u => u.SecurityStamp)
+                .FirstOrDefaultAsync();
+
+            if (currentStamp is null || currentStamp != tokenStamp)
+            {
+                context.Fail("This session is no longer valid — please sign in again.");
+            }
+        }
     };
 });
 

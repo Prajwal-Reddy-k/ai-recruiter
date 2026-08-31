@@ -25,6 +25,8 @@ const STATUS_TONES: Record<string, BadgeTone> = {
   InterviewScheduled: "accent",
   InterviewCompleted: "accent",
   Proposed: "accent",
+  Completed: "success",
+  Declined: "danger",
   Rejected: "danger",
   Cancelled: "danger",
   Removed: "danger",

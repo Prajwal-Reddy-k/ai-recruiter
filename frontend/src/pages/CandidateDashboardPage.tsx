@@ -81,7 +81,7 @@ export default function CandidateDashboardPage() {
 
       {dashboard.upcomingInterviews.length > 0 && (
         <Card>
-          <SectionHeader title="Upcoming interviews" as="h3" />
+          <SectionHeader title="Upcoming interviews" action={<Link to="/interviews">View all →</Link>} as="h3" />
           <ul className="job-list-compact">
             {dashboard.upcomingInterviews.map((iv) => (
               <li key={iv.interviewId} className="job-card job-card-compact">

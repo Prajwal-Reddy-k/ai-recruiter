@@ -53,6 +53,17 @@ public class ExternalServiceUnavailableException : AppException
     public int? RetryAfterSeconds { get; }
 }
 
+public class RateLimitedException : AppException
+{
+    public RateLimitedException(string message, int? retryAfterSeconds = null)
+        : base(StatusCodes.Status429TooManyRequests, "RATE_LIMITED", message)
+    {
+        RetryAfterSeconds = retryAfterSeconds;
+    }
+
+    public int? RetryAfterSeconds { get; }
+}
+
 file static class StatusCodes
 {
     public const int Status400BadRequest = 400;
@@ -60,5 +71,6 @@ file static class StatusCodes
     public const int Status403Forbidden = 403;
     public const int Status404NotFound = 404;
     public const int Status409Conflict = 409;
+    public const int Status429TooManyRequests = 429;
     public const int Status503ServiceUnavailable = 503;
 }

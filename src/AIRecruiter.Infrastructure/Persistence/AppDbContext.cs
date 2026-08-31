@@ -16,11 +16,11 @@ public class AppDbContext : DbContext
     public DbSet<ApplicationStatusHistory> ApplicationStatusHistories => Set<ApplicationStatusHistory>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Interview> Interviews => Set<Interview>();
-    public DbSet<InterviewSlot> InterviewSlots => Set<InterviewSlot>();
     public DbSet<SavedJob> SavedJobs => Set<SavedJob>();
     public DbSet<JobAlert> JobAlerts => Set<JobAlert>();
     public DbSet<JobReport> JobReports => Set<JobReport>();
     public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -109,12 +109,6 @@ public class AppDbContext : DbContext
             .HasForeignKey(i => i.CreatedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        modelBuilder.Entity<InterviewSlot>()
-            .HasOne(s => s.Interview)
-            .WithMany(i => i.Slots)
-            .HasForeignKey(s => s.InterviewId)
-            .OnDelete(DeleteBehavior.Cascade);
-
         // --- Saved jobs ---
         modelBuilder.Entity<SavedJob>()
             .HasOne(s => s.CandidateProfile)
@@ -157,6 +151,16 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(r => r.ReviewedByUserId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Password reset codes ---
+        modelBuilder.Entity<PasswordResetCode>()
+            .HasOne(p => p.User)
+            .WithMany(u => u.PasswordResetCodes)
+            .HasForeignKey(p => p.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PasswordResetCode>()
+            .HasIndex(p => new { p.UserId, p.IsUsed });
 
         // --- Audit log ---
         modelBuilder.Entity<AuditLogEntry>()

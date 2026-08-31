@@ -284,32 +284,47 @@ export interface AppNotification {
   createdAt: string;
 }
 
-export interface InterviewSlot {
-  id: number;
-  startUtc: string;
-  endUtc: string;
-  isSelected: boolean;
-}
+export type InterviewTypeValue = "Online" | "Phone" | "InPerson";
 
 export interface Interview {
   id: number;
   jobApplicationId: number;
+  jobId: number;
   jobTitle: string;
+  companyId: number;
   companyName: string;
+  candidateProfileId: number;
   candidateFullName: string;
+  scheduledStartUtc: string;
+  scheduledEndUtc: string;
+  type: InterviewTypeValue;
+  location: string | null;
+  recruiterNote: string | null;
+  candidateResponseNote: string | null;
   status: string;
-  declineNote: string | null;
+  canManage: boolean;
   createdAt: string;
-  slots: InterviewSlot[];
+  updatedAt: string | null;
 }
 
-export interface ProposeInterviewRequest {
-  slots: { startUtc: string; endUtc: string }[];
+export interface ScheduleInterviewRequest {
+  startUtc: string;
+  endUtc: string;
+  type: InterviewTypeValue;
+  location?: string;
+  recruiterNote?: string;
+}
+
+export interface RescheduleInterviewRequest {
+  startUtc: string;
+  endUtc: string;
+  type?: InterviewTypeValue;
+  location?: string;
+  recruiterNote?: string;
 }
 
 export interface RespondInterviewRequest {
-  acceptedSlotId?: number;
-  declineNote?: string;
+  responseNote?: string;
 }
 
 export interface JobAlert {

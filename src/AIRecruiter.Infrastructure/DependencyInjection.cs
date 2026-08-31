@@ -1,4 +1,5 @@
 using AIRecruiter.Application.Interfaces;
+using AIRecruiter.Infrastructure.Email;
 using AIRecruiter.Infrastructure.ExternalJobs;
 using AIRecruiter.Infrastructure.Locations;
 using AIRecruiter.Infrastructure.Options;
@@ -14,7 +15,10 @@ namespace AIRecruiter.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    /// <summary><paramref name="isDevelopment"/> gates the Development-only email sender —
+    /// it must never be reachable outside Development, even if SMTP happens to be unconfigured
+    /// there too. Callers pass <c>builder.Environment.IsDevelopment()</c>.</summary>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
     {
         services.AddDbContext<AppDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
@@ -24,6 +28,7 @@ public static class DependencyInjection
         services.Configure<CloudinaryOptions>(configuration.GetSection(CloudinaryOptions.SectionName));
         services.Configure<AdzunaOptions>(configuration.GetSection(AdzunaOptions.SectionName));
         services.Configure<NominatimOptions>(configuration.GetSection(NominatimOptions.SectionName));
+        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
 
         services.AddMemoryCache();
 
@@ -46,6 +51,24 @@ public static class DependencyInjection
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddSingleton<IViewDeduplicationService, InMemoryViewDeduplicationService>();
         services.AddScoped<ICandidateSearchService, CandidateSearchService>();
+        services.AddSingleton<IIpRateLimiter, InMemoryIpRateLimiter>();
+
+        // Email: a real SMTP account (any provider) if fully configured; otherwise a
+        // Development-only sender that logs the content locally; otherwise (e.g. Production
+        // with SMTP left unconfigured) a fallback that sends nothing and only warns.
+        var smtpOptions = configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>() ?? new SmtpOptions();
+        if (smtpOptions.IsConfigured)
+        {
+            services.AddScoped<IEmailSender, SmtpEmailSender>();
+        }
+        else if (isDevelopment)
+        {
+            services.AddScoped<IEmailSender, DevEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, NullEmailSender>();
+        }
 
         // Text extraction
         services.AddSingleton<IResumeTextExtractor, PdfResumeTextExtractor>();

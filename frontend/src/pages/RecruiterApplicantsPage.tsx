@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Users } from "lucide-react";
+import { CalendarClock, Users } from "lucide-react";
 import { getApplicationsForJob, updateApplicationStatus, type ApplicationStatusValue } from "../api/applications";
+import { scheduleInterview } from "../api/interviews";
 import type { JobApplication } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
+import Button from "../components/ui/Button";
+import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
 
 const RECRUITER_SELECTABLE_STATUSES: ApplicationStatusValue[] = [
   "Applied",
@@ -27,6 +30,7 @@ export default function RecruiterApplicantsPage() {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -47,6 +51,16 @@ export default function RecruiterApplicantsPage() {
       setUpdateError(getErrorMessage(err, "Failed to update application status"));
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  async function handleScheduleSubmit(payload: ScheduleInterviewFormPayload) {
+    if (!scheduleTarget) return;
+    try {
+      await scheduleInterview(scheduleTarget.id, payload);
+      toast.success("Interview invitation sent.");
+    } catch (err) {
+      throw new Error(getErrorMessage(err, "Failed to schedule interview"));
     }
   }
 
@@ -80,7 +94,7 @@ export default function RecruiterApplicantsPage() {
               {app.status === "Withdrawn" ? (
                 <p className="hint" style={{ marginTop: "0.5rem" }}>This candidate withdrew their application.</p>
               ) : (
-                <div className="applicant-actions">
+                <div className="applicant-actions" style={{ flexWrap: "wrap" }}>
                   <label htmlFor={`status-${app.id}`} className="hint">Status:</label>
                   <select
                     id={`status-${app.id}`}
@@ -94,12 +108,22 @@ export default function RecruiterApplicantsPage() {
                       </option>
                     ))}
                   </select>
+                  <Button size="sm" variant="secondary" icon={<CalendarClock size={14} />} onClick={() => setScheduleTarget(app)}>
+                    Schedule interview
+                  </Button>
                 </div>
               )}
             </li>
           ))}
         </ul>
       )}
+
+      <ScheduleInterviewModal
+        open={scheduleTarget !== null}
+        onClose={() => setScheduleTarget(null)}
+        onSubmit={handleScheduleSubmit}
+        candidateName={scheduleTarget?.candidateFullName ?? undefined}
+      />
     </div>
   );
 }

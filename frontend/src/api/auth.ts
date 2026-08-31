@@ -31,3 +31,35 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   const { data } = await apiClient.post<AuthResponse>("/auth/login", payload);
   return data;
 }
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+export interface VerifyResetCodeResponse {
+  resetToken: string;
+  expiresAtUtc: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  const { data } = await apiClient.post<ForgotPasswordResponse>("/auth/forgot-password", { email });
+  return data;
+}
+
+export async function verifyResetCode(email: string, code: string): Promise<VerifyResetCodeResponse> {
+  const { data } = await apiClient.post<VerifyResetCodeResponse>("/auth/verify-reset-code", { email, code });
+  return data;
+}
+
+export async function resetPassword(resetToken: string, newPassword: string, confirmPassword: string): Promise<ResetPasswordResponse> {
+  const { data } = await apiClient.post<ResetPasswordResponse>("/auth/reset-password", {
+    resetToken,
+    newPassword,
+    confirmPassword,
+  });
+  return data;
+}

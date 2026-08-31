@@ -9,14 +9,17 @@ import {
   type ApplicationStatusValue,
 } from "../api/applications";
 import {
+  acceptInterview,
+  cancelInterview,
+  completeInterview,
+  declineInterview,
   downloadInterviewIcs,
   getInterviewsForApplication,
-  proposeInterview,
-  respondToInterview,
+  rescheduleInterview,
+  scheduleInterview,
 } from "../api/interviews";
 import type { Interview, JobApplicationDetail } from "../types";
 import { saveBlobAsFile } from "../utils/download";
-import { toIST } from "../utils/format";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../utils/errors";
@@ -25,6 +28,8 @@ import Button from "../components/ui/Button";
 import Modal from "../components/ui/Modal";
 import FormField from "../components/ui/FormField";
 import { StatusBadge } from "../components/ui/Badge";
+import InterviewCard from "../components/InterviewCard";
+import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
 
 const TERMINAL_STATUSES = new Set(["Withdrawn", "Rejected", "Hired"]);
 
@@ -52,10 +57,8 @@ export default function ApplicationDetailPage() {
   const [confirmWithdraw, setConfirmWithdraw] = useState(false);
   const [statusNote, setStatusNote] = useState("");
 
-  const [proposeOpen, setProposeOpen] = useState(false);
-  const [slotInputs, setSlotInputs] = useState<{ start: string; end: string }[]>([{ start: "", end: "" }]);
-  const [proposing, setProposing] = useState(false);
-  const [proposeError, setProposeError] = useState<string | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Interview | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -114,51 +117,77 @@ export default function ApplicationDetailPage() {
     }
   }
 
-  function addSlotInput() {
-    setSlotInputs((prev) => [...prev, { start: "", end: "" }]);
-  }
-
-  async function handleProposeSubmit() {
+  async function handleScheduleSubmit(payload: ScheduleInterviewFormPayload) {
     if (!application) return;
-    const valid = slotInputs.filter((s) => s.start && s.end);
-    if (valid.length === 0) {
-      setProposeError("Add at least one slot with a start and end time.");
-      return;
-    }
-    setProposing(true);
-    setProposeError(null);
     try {
-      await proposeInterview(application.id, {
-        slots: valid.map((s) => ({
-          startUtc: new Date(s.start).toISOString(),
-          endUtc: new Date(s.end).toISOString(),
-        })),
-      });
-      toast.success("Interview slots proposed.");
-      setProposeOpen(false);
-      setSlotInputs([{ start: "", end: "" }]);
+      await scheduleInterview(application.id, payload);
+      toast.success("Interview invitation sent.");
       await refreshInterviews();
     } catch (err) {
-      setProposeError(getErrorMessage(err, "Failed to propose interview slots"));
-    } finally {
-      setProposing(false);
+      throw new Error(getErrorMessage(err, "Failed to schedule interview"));
     }
   }
 
-  async function handleRespond(interviewId: number, acceptedSlotId?: number, declineNote?: string) {
+  async function handleRescheduleSubmit(payload: ScheduleInterviewFormPayload) {
+    if (!rescheduleTarget) return;
     try {
-      await respondToInterview(interviewId, { acceptedSlotId, declineNote });
-      toast.success(acceptedSlotId ? "Interview accepted." : "Interview declined.");
+      await rescheduleInterview(rescheduleTarget.id, payload);
+      toast.success("Interview rescheduled — the candidate needs to reconfirm.");
+      await refreshInterviews();
+    } catch (err) {
+      throw new Error(getErrorMessage(err, "Failed to reschedule interview"));
+    }
+  }
+
+  async function handleAccept(interviewId: number) {
+    try {
+      await acceptInterview(interviewId);
+      toast.success("Interview accepted.");
       await refreshInterviews();
       if (application) setApplication(await getApplicationDetail(application.id));
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to respond to interview"));
+      toast.error(getErrorMessage(err, "Failed to accept interview"));
+    }
+  }
+
+  async function handleDecline(interviewId: number, note?: string) {
+    try {
+      await declineInterview(interviewId, { responseNote: note });
+      toast.success("Interview declined.");
+      await refreshInterviews();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to decline interview"));
+    }
+  }
+
+  async function handleCancel(interviewId: number) {
+    try {
+      await cancelInterview(interviewId);
+      toast.success("Interview cancelled.");
+      await refreshInterviews();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to cancel interview"));
+    }
+  }
+
+  async function handleComplete(interviewId: number) {
+    try {
+      await completeInterview(interviewId);
+      toast.success("Interview marked completed.");
+      await refreshInterviews();
+      if (application) setApplication(await getApplicationDetail(application.id));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to mark interview completed"));
     }
   }
 
   async function handleDownloadIcs(interviewId: number) {
-    const blob = await downloadInterviewIcs(interviewId);
-    saveBlobAsFile(blob, `interview-${interviewId}.ics`);
+    try {
+      const blob = await downloadInterviewIcs(interviewId);
+      saveBlobAsFile(blob, `interview-${interviewId}.ics`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to download calendar file"));
+    }
   }
 
   if (loading) return <p>Loading...</p>;
@@ -199,8 +228,8 @@ export default function ApplicationDetailPage() {
           )}
 
           {user?.role === "Recruiter" && application.status !== "Withdrawn" && (
-            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setProposeOpen(true)}>
-              Propose interview
+            <Button variant="secondary" icon={<CalendarClock size={16} />} onClick={() => setScheduleOpen(true)}>
+              Schedule interview
             </Button>
           )}
         </div>
@@ -230,34 +259,22 @@ export default function ApplicationDetailPage() {
         )}
 
         {interviews.length > 0 && (
-          <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>
-            <h3 style={{ marginBottom: "0.75rem" }}>Interviews</h3>
+          <div style={{ marginTop: "1.25rem", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <h3>Interviews</h3>
             {interviews.map((iv) => (
-              <div key={iv.id} style={{ marginBottom: "1rem", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
-                <p><strong>Status:</strong> {iv.status}</p>
-                {iv.slots.map((slot) => (
-                  <div key={slot.id} style={{ display: "flex", gap: "0.75rem", alignItems: "center", marginTop: "0.5rem" }}>
-                    <span>{toIST(slot.startUtc)} – {toIST(slot.endUtc)}</span>
-                    {slot.isSelected && <StatusBadge status="Scheduled" />}
-                    {user?.role === "Candidate" && iv.status === "Proposed" && !slot.isSelected && (
-                      <Button variant="secondary" onClick={() => handleRespond(iv.id, slot.id)}>Accept this slot</Button>
-                    )}
-                  </div>
-                ))}
-                {user?.role === "Candidate" && iv.status === "Proposed" && (
-                  <Button variant="ghost" onClick={() => handleRespond(iv.id, undefined, "Not available for the proposed times")} style={{ marginTop: "0.5rem" }}>
-                    Decline all
-                  </Button>
-                )}
-                {iv.status === "Scheduled" && (
-                  <Button variant="secondary" onClick={() => handleDownloadIcs(iv.id)} style={{ marginTop: "0.5rem" }}>
-                    Download .ics
-                  </Button>
-                )}
-                {iv.declineNote && <p className="hint" style={{ marginTop: "0.5rem" }}>Note: {iv.declineNote}</p>}
-              </div>
+              <InterviewCard
+                key={iv.id}
+                interview={iv}
+                role={user?.role === "Recruiter" ? "Recruiter" : "Candidate"}
+                onAccept={() => handleAccept(iv.id)}
+                onDecline={(note) => handleDecline(iv.id, note)}
+                onReschedule={() => setRescheduleTarget(iv)}
+                onCancel={() => handleCancel(iv.id)}
+                onComplete={() => handleComplete(iv.id)}
+                onDownloadIcs={() => handleDownloadIcs(iv.id)}
+              />
             ))}
-          </Card>
+          </div>
         )}
 
         {application.statusHistory.length > 0 && (
@@ -363,44 +380,21 @@ export default function ApplicationDetailPage() {
         Withdraw your application for "{application.jobTitle}"? This can't be undone.
       </Modal>
 
-      <Modal
-        open={proposeOpen}
-        onClose={() => setProposeOpen(false)}
-        title="Propose interview slots"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setProposeOpen(false)}>Cancel</Button>
-            <Button onClick={handleProposeSubmit} loading={proposing}>Send to candidate</Button>
-          </>
-        }
-      >
-        {slotInputs.map((slot, i) => (
-          <div className="form-row" key={i} style={{ marginBottom: "0.75rem" }}>
-            <FormField label="Start" htmlFor={`slot-start-${i}`}>
-              <input
-                id={`slot-start-${i}`}
-                type="datetime-local"
-                value={slot.start}
-                onChange={(e) =>
-                  setSlotInputs((prev) => prev.map((s, idx) => (idx === i ? { ...s, start: e.target.value } : s)))
-                }
-              />
-            </FormField>
-            <FormField label="End" htmlFor={`slot-end-${i}`}>
-              <input
-                id={`slot-end-${i}`}
-                type="datetime-local"
-                value={slot.end}
-                onChange={(e) =>
-                  setSlotInputs((prev) => prev.map((s, idx) => (idx === i ? { ...s, end: e.target.value } : s)))
-                }
-              />
-            </FormField>
-          </div>
-        ))}
-        <button type="button" className="link-button" onClick={addSlotInput}>+ Add another slot</button>
-        {proposeError && <p className="error" style={{ marginTop: "0.75rem" }}>{proposeError}</p>}
-      </Modal>
+      <ScheduleInterviewModal
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        onSubmit={handleScheduleSubmit}
+        candidateName={application.candidateFullName}
+      />
+
+      <ScheduleInterviewModal
+        open={rescheduleTarget !== null}
+        onClose={() => setRescheduleTarget(null)}
+        onSubmit={handleRescheduleSubmit}
+        mode="reschedule"
+        existing={rescheduleTarget}
+        candidateName={application.candidateFullName}
+      />
     </div>
   );
 }

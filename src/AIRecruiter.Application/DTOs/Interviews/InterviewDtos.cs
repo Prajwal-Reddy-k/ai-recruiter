@@ -1,17 +1,42 @@
+using AIRecruiter.Domain.Enums;
+
 namespace AIRecruiter.Application.DTOs.Interviews;
 
-public record InterviewSlotDto(int Id, DateTime StartUtc, DateTime EndUtc, bool IsSelected);
+public record ScheduleInterviewRequest(
+    DateTime StartUtc,
+    DateTime EndUtc,
+    InterviewType Type,
+    string? Location,
+    string? RecruiterNote);
+
+public record RescheduleInterviewRequest(
+    DateTime StartUtc,
+    DateTime EndUtc,
+    InterviewType? Type,
+    string? Location,
+    string? RecruiterNote);
+
+public record RespondInterviewRequest(string? ResponseNote);
 
 public record InterviewDto(
     int Id,
     int JobApplicationId,
+    int JobId,
     string JobTitle,
+    int CompanyId,
     string CompanyName,
+    int CandidateProfileId,
     string CandidateFullName,
+    DateTime ScheduledStartUtc,
+    DateTime ScheduledEndUtc,
+    string Type,
+    string? Location,
+    string? RecruiterNote,
+    string? CandidateResponseNote,
     string Status,
-    string? DeclineNote,
+    bool CanManage,
     DateTime CreatedAt,
-    IReadOnlyList<InterviewSlotDto> Slots);
+    DateTime? UpdatedAt);
 
 public record UpcomingInterviewDto(
     int InterviewId,
@@ -21,7 +46,3 @@ public record UpcomingInterviewDto(
     string CandidateFullName,
     DateTime StartUtc,
     DateTime EndUtc);
-
-public record ProposeInterviewSlotRequest(DateTime StartUtc, DateTime EndUtc);
-public record ProposeInterviewRequest(IReadOnlyList<ProposeInterviewSlotRequest> Slots);
-public record RespondInterviewRequest(int? AcceptedSlotId, string? DeclineNote);
