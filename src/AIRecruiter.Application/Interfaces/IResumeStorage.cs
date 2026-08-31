@@ -3,9 +3,11 @@ namespace AIRecruiter.Application.Interfaces;
 public record ResumeStorageResult(string StorageKey, long SizeBytes);
 
 /// <summary>
-/// Provider-agnostic resume file storage. The default implementation is local-disk based
-/// and requires no external service or paid account. Files are never served directly —
-/// downloads always go through an authorized backend endpoint.
+/// Provider-agnostic file storage for a candidate's uploaded files — resumes and profile
+/// photos alike, keyed by candidate profile id and an opaque storage key. The default
+/// implementation is local-disk based and requires no external service or paid account.
+/// Files are never served directly — downloads always go through an authorized (or, for
+/// avatars, a deliberately public) backend endpoint.
 /// </summary>
 public interface IResumeStorage
 {

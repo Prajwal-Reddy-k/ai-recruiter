@@ -34,6 +34,16 @@ public class ValidationException : AppException
 {
     public ValidationException(string message, string errorCode = "VALIDATION_ERROR")
         : base(StatusCodes.Status400BadRequest, errorCode, message) { }
+
+    /// <summary>Per-field messages (field name -> error), for forms that need to show
+    /// several inline errors at once rather than a single generic message.</summary>
+    public ValidationException(string message, IReadOnlyDictionary<string, string> fieldErrors, string errorCode = "VALIDATION_ERROR")
+        : base(StatusCodes.Status400BadRequest, errorCode, message)
+    {
+        FieldErrors = fieldErrors;
+    }
+
+    public IReadOnlyDictionary<string, string>? FieldErrors { get; }
 }
 
 public class UnauthorizedException : AppException

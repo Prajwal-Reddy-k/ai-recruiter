@@ -11,6 +11,8 @@ public static class DependencyInjection
     {
         services.AddSingleton<IResumeMatchingService, ResumeMatchingService>();
         services.AddSingleton<ResumeFileValidator>();
+        services.AddSingleton<ImageFileValidator>();
+        services.AddSingleton<CandidateProfileValidator>();
         services.AddSingleton<IndiaLocationValidator>();
 
         return services;

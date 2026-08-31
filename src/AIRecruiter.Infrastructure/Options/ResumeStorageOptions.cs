@@ -8,6 +8,14 @@ public class ResumeStorageOptions
     public long MaxSizeBytes { get; set; } = 5 * 1024 * 1024;
 }
 
+public class AvatarOptions
+{
+    public const string SectionName = "Avatar";
+
+    public long MaxSizeBytes { get; set; } = 5 * 1024 * 1024;
+    public int MaxDimensionPx { get; set; } = 512;
+}
+
 public class CloudinaryOptions
 {
     public const string SectionName = "Cloudinary";

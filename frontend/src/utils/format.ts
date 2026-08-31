@@ -1,3 +1,10 @@
+/** Resolves an API-relative avatar path (e.g. "/candidates/5/avatar") into an absolute URL
+ * usable as an <img src>, by prefixing the configured API base URL. */
+export function resolveAvatarUrl(avatarUrl: string | null | undefined): string | undefined {
+  if (!avatarUrl) return undefined;
+  return `${import.meta.env.VITE_API_BASE_URL}${avatarUrl}`;
+}
+
 export function getInitials(fullName: string): string {
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "?";

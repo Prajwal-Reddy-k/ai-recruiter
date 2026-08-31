@@ -7,6 +7,7 @@ export interface AuthResponse {
   role: UserRole;
   token: string;
   expiresAt: string;
+  avatarUrl: string | null;
 }
 
 export interface IndianState {
@@ -122,6 +123,7 @@ export interface CandidateProfile {
   headline: string | null;
   summary: string | null;
   education: string | null;
+  graduationYear: number | null;
   experienceSummary: string | null;
   totalExperienceYears: number | null;
   city: string | null;
@@ -131,15 +133,21 @@ export interface CandidateProfile {
   currentSalary: number | null;
   expectedSalary: number | null;
   skillsCsv: string | null;
+  phone: string | null;
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
   resumeOriginalFileName: string | null;
   resumeSizeBytes: number | null;
   resumeUploadedAt: string | null;
+  avatarUrl: string | null;
 }
 
 export interface UpsertCandidateProfileRequest {
   headline?: string;
   summary?: string;
   education?: string;
+  graduationYear?: number;
   experienceSummary?: string;
   totalExperienceYears?: number;
   city?: string;
@@ -148,6 +156,10 @@ export interface UpsertCandidateProfileRequest {
   currentSalary?: number;
   expectedSalary?: number;
   skillsCsv?: string;
+  phone?: string;
+  linkedInUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
 }
 
 export interface JobApplication {
@@ -219,6 +231,7 @@ export interface ApiProblem {
   title?: string;
   detail?: string;
   errorCode?: string;
+  fieldErrors?: Record<string, string>;
 }
 
 export interface ApplicationStatusSummary {

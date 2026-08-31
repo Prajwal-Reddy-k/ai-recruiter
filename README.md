@@ -15,9 +15,9 @@ _No screenshots are checked into this repository yet._ To add some: run the app 
 | Backend | ASP.NET Core Web API on .NET 10, Clean Architecture (Domain → Application → Infrastructure → API), EF Core 10 + SQL Server/LocalDB |
 | Frontend | React 19 + TypeScript, Vite, react-router-dom, axios |
 | Auth | JWT Bearer tokens, BCrypt password hashing, role-based (Candidate / Recruiter / Admin) + ownership authorization |
-| Core features | India-only structured job locations · job draft/publish/close/archive lifecycle · applications with full status history · explainable local resume matching · Kanban applicant board · interview scheduling with `.ics` export · saved jobs & job alerts · company-scoped candidate search + CSV export · privacy-conscious job-view tracking · analytics · admin moderation · audit trail · secure forgot/reset password with email verification codes |
+| Core features | India-only structured job locations · job draft/publish/close/archive lifecycle · applications with full status history · explainable local resume matching · Kanban applicant board · interview scheduling with `.ics` export · saved jobs & job alerts · company-scoped candidate search + CSV export · privacy-conscious job-view tracking · analytics · admin moderation · audit trail · secure forgot/reset password with email verification codes · candidate profile photo upload with server-side resize/validation · footer with deep-linked popular job-role searches |
 | Cost | Zero — every optional third-party integration (Cloudinary, Adzuna, SMTP) is behind an interface and only activates when credentials are configured; falls back gracefully otherwise |
-| Tests | 141 passing (xUnit + EF Core InMemory + Moq) |
+| Tests | 195 passing (xUnit + EF Core InMemory + Moq) |
 
 Full, verified feature-by-feature status table: [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md#feature-status).
 
@@ -105,6 +105,22 @@ Recruiters propose a single interview time for a shortlisted applicant; the cand
 4. As the recruiter, **Reschedule** the interview to a new time and confirm its status reverts to **Proposed** until the candidate reconfirms.
 5. Try scheduling a time in the past, or an end time before the start time, and confirm the API returns a friendly validation error instead of a 500.
 6. As the recruiter, **Cancel** or mark an accepted interview **Completed**, and confirm the status updates on both dashboards' "Upcoming interviews" widgets.
+
+## Candidate Profile: Photo Upload & Validation
+
+Candidates can upload a profile photo and get thorough validation across the whole profile form, both in the browser and enforced again on the server.
+
+- **Photo upload** (`/profile` → Profile photo card) — accepts JPG, JPEG, PNG, and WEBP up to 5 MB; the extension, declared MIME type, *and* the file's actual byte signature are all checked server-side (so a renamed `.exe` claiming to be a `.jpg` is rejected) before anything is resized. The server then constrains it to a 512×512 box (via [ImageSharp](https://github.com/SixLabors/ImageSharp), preserving aspect ratio) and re-encodes it as JPEG, so stored/served avatars are always a bounded, predictable size regardless of what was uploaded. Storage reuses the same local-disk/Cloudinary-swappable abstraction already used for resumes (`IResumeStorage`) — no new provider was introduced.
+- **Serving** — avatars are served from `GET /api/candidates/{id}/avatar`, deliberately public/anonymous (profile photos aren't sensitive the way a resume is, and recruiters/other pages need to display them without juggling auth headers on an `<img>` tag). Removing a photo reverts to a generated initials avatar everywhere it's shown — profile page, navbar, and candidate dashboard, all updating live without a page reload.
+- **Field validation** — headline, bio, education, graduation year, experience years, skills (at least one, deduplicated, length-capped), phone (normalized to a bare 10-digit Indian mobile number), and LinkedIn/GitHub/portfolio URLs (must be `https://`, and LinkedIn/GitHub URLs must actually point at `linkedin.com`/`github.com`, not just contain those characters somewhere) are all validated. Every rule is enforced server-side regardless of what the client sends — the API returns a `fieldErrors` map so the exact same inline, per-field error UI (a standing convention across this app's forms) works for server-side rejections too, not just client-side ones.
+
+**Manual test steps**:
+1. Log in as a candidate (`candidate1@demo.airecruiter.dev` / `Demo@123`), open `/profile`, and upload a JPG/PNG/WEBP under 5 MB — confirm the preview updates and the navbar avatar changes immediately.
+2. Try uploading a renamed non-image file (e.g. a `.txt` renamed to `.jpg`) — confirm a clear inline error, not a crash.
+3. Click **Remove** — confirm it reverts to the initials avatar everywhere.
+4. Clear the Headline field and click elsewhere (blur) — confirm "Headline is required." appears inline immediately, without submitting the form.
+5. Enter a duplicate skill (e.g. `C#, c#`), an invalid phone number, or a GitHub URL that isn't actually a `github.com` link, and submit — confirm each produces its own inline field error and the rest of your entered values are preserved (nothing is cleared on a failed save).
+6. Fix the errors and save — confirm the success toast and that the values persist after a page reload.
 
 ## Documentation
 

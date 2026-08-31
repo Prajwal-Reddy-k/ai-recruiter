@@ -24,9 +24,8 @@ public class JobApplicationServiceTests
         var resumeStorage = new Mock<IResumeStorage>();
         var extractorFactory = new Mock<IResumeTextExtractorFactory>();
         var validator = new ResumeFileValidator();
-        var candidateProfileService = new CandidateProfileService(
-            db, resumeStorage.Object, extractorFactory.Object, validator, Options.Create(new ResumeStorageOptions()),
-            TestServiceFactory.CreateLocationValidator());
+        var candidateProfileService = TestServiceFactory.CreateCandidateProfileService(
+            db, resumeStorage.Object, extractorFactory.Object, validator);
 
         return new JobApplicationService(
             db, matcher, candidateProfileService, TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateAuditLog(db));

@@ -71,6 +71,22 @@ public class AuthServiceTests
             () => sut.RegisterAsync(new RegisterRequest("Wannabe Admin", "admin@example.com", "Passw0rd!", UserRole.Admin)));
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("A")]
+    [InlineData("John123")]
+    public async Task RegisterAsync_InvalidFullName_ThrowsValidationWithFieldError(string fullName)
+    {
+        using var db = TestDbContextFactory.Create();
+        var (sut, _) = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => sut.RegisterAsync(new RegisterRequest(fullName, "someone@example.com", "Passw0rd!", UserRole.Candidate)));
+
+        Assert.NotNull(ex.FieldErrors);
+        Assert.True(ex.FieldErrors!.ContainsKey("fullName"));
+    }
+
     [Fact]
     public async Task RegisterAsync_NeverStoresPlainTextPassword()
     {
@@ -94,6 +110,30 @@ public class AuthServiceTests
         var result = await sut.LoginAsync(new LoginRequest("CASEY@example.com", "Passw0rd!"));
 
         Assert.Equal("casey@example.com", result.Email);
+    }
+
+    [Fact]
+    public async Task LoginAsync_CandidateWithNoAvatar_ReturnsNullAvatarUrl()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (sut, _) = CreateSut(db);
+        await sut.RegisterAsync(new RegisterRequest("Casey Candidate", "casey@example.com", "Passw0rd!", UserRole.Candidate));
+
+        var result = await sut.LoginAsync(new LoginRequest("casey@example.com", "Passw0rd!"));
+
+        Assert.Null(result.AvatarUrl);
+    }
+
+    [Fact]
+    public async Task LoginAsync_RecruiterRole_ReturnsNullAvatarUrl()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (sut, _) = CreateSut(db);
+        await sut.RegisterAsync(new RegisterRequest("Ravi Recruiter", "ravi@example.com", "Passw0rd!", UserRole.Recruiter));
+
+        var result = await sut.LoginAsync(new LoginRequest("ravi@example.com", "Passw0rd!"));
+
+        Assert.Null(result.AvatarUrl);
     }
 
     [Fact]

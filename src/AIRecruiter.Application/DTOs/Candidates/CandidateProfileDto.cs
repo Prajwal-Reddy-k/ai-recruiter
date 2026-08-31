@@ -6,6 +6,7 @@ public record CandidateProfileDto(
     string? Headline,
     string? Summary,
     string? Education,
+    int? GraduationYear,
     string? ExperienceSummary,
     int? TotalExperienceYears,
     string? City,
@@ -15,14 +16,20 @@ public record CandidateProfileDto(
     decimal? CurrentSalary,
     decimal? ExpectedSalary,
     string? SkillsCsv,
+    string? Phone,
+    string? LinkedInUrl,
+    string? GithubUrl,
+    string? PortfolioUrl,
     string? ResumeOriginalFileName,
     long? ResumeSizeBytes,
-    DateTime? ResumeUploadedAt);
+    DateTime? ResumeUploadedAt,
+    string? AvatarUrl);
 
 public record UpsertCandidateProfileRequest(
     string? Headline,
     string? Summary,
     string? Education,
+    int? GraduationYear,
     string? ExperienceSummary,
     int? TotalExperienceYears,
     string? City,
@@ -30,4 +37,8 @@ public record UpsertCandidateProfileRequest(
     string? Locality,
     decimal? CurrentSalary,
     decimal? ExpectedSalary,
-    string? SkillsCsv);
+    string? SkillsCsv,
+    string? Phone,
+    string? LinkedInUrl,
+    string? GithubUrl,
+    string? PortfolioUrl);

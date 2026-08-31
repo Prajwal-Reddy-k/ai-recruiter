@@ -32,6 +32,7 @@ import CompanyProfilePage from "./pages/CompanyProfilePage";
 import AdminPage from "./pages/AdminPage";
 import CandidateInterviewsPage from "./pages/CandidateInterviewsPage";
 import RecruiterInterviewsPage from "./pages/RecruiterInterviewsPage";
+import PlaceholderInfoPage from "./pages/PlaceholderInfoPage";
 import "./App.css";
 
 export default function App() {
@@ -50,6 +51,8 @@ export default function App() {
             <Route path="/verify-reset-code" element={<VerifyResetCodePage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/privacy" element={<PlaceholderInfoPage title="Privacy Policy" />} />
+            <Route path="/terms" element={<PlaceholderInfoPage title="Terms of Service" />} />
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/companies/:id" element={<CompanyProfilePage />} />
             <Route

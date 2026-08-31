@@ -1,6 +1,8 @@
 using AIRecruiter.Application.Interfaces;
+using AIRecruiter.Application.Validation;
 using AIRecruiter.Infrastructure.Email;
 using AIRecruiter.Infrastructure.ExternalJobs;
+using AIRecruiter.Infrastructure.Images;
 using AIRecruiter.Infrastructure.Locations;
 using AIRecruiter.Infrastructure.Options;
 using AIRecruiter.Infrastructure.Persistence;
@@ -25,6 +27,7 @@ public static class DependencyInjection
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<ResumeStorageOptions>(configuration.GetSection(ResumeStorageOptions.SectionName));
+        services.Configure<AvatarOptions>(configuration.GetSection(AvatarOptions.SectionName));
         services.Configure<CloudinaryOptions>(configuration.GetSection(CloudinaryOptions.SectionName));
         services.Configure<AdzunaOptions>(configuration.GetSection(AdzunaOptions.SectionName));
         services.Configure<NominatimOptions>(configuration.GetSection(NominatimOptions.SectionName));
@@ -69,6 +72,9 @@ public static class DependencyInjection
         {
             services.AddScoped<IEmailSender, NullEmailSender>();
         }
+
+        // Avatar image processing (resize/re-encode) — pure local compute, no external service.
+        services.AddScoped<IAvatarImageProcessor, ImageSharpAvatarProcessor>();
 
         // Text extraction
         services.AddSingleton<IResumeTextExtractor, PdfResumeTextExtractor>();

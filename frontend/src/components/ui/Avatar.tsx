@@ -3,9 +3,21 @@ import { getInitials } from "../../utils/format";
 interface AvatarProps {
   name: string;
   size?: number;
+  src?: string | null;
 }
 
-export default function Avatar({ name, size = 36 }: AvatarProps) {
+export default function Avatar({ name, size = 36, src }: AvatarProps) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="ui-avatar ui-avatar-image"
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
   return (
     <span
       className="ui-avatar"

@@ -11,6 +11,8 @@ import StatCard from "../components/ui/StatCard";
 import SectionHeader from "../components/ui/SectionHeader";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
+import Avatar from "../components/ui/Avatar";
+import { resolveAvatarUrl } from "../utils/format";
 
 function JobRow({ job }: { job: JobPosting }) {
   return (
@@ -43,9 +45,14 @@ export default function CandidateDashboardPage() {
 
   return (
     <div className="dashboard-page">
-      <div className="page-header">
-        <h1>Welcome back{user ? `, ${user.fullName.split(" ")[0]}` : ""}</h1>
-        <p>Here's how your job search is going.</p>
+      <div className="page-header dashboard-welcome">
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+          <Avatar name={user?.fullName ?? "?"} size={56} src={resolveAvatarUrl(user?.avatarUrl)} />
+          <div>
+            <h1>Welcome back{user ? `, ${user.fullName.split(" ")[0]}` : ""}</h1>
+            <p>Here's how your job search is going.</p>
+          </div>
+        </div>
       </div>
 
       <div className="dashboard-grid">

@@ -6,12 +6,14 @@ interface AuthUser {
   fullName: string;
   email: string;
   role: UserRole;
+  avatarUrl: string | null;
 }
 
 interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   setSession: (auth: AuthResponse) => void;
+  updateAvatarUrl: (avatarUrl: string | null) => void;
   logout: () => void;
 }
 
@@ -36,10 +38,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: auth.fullName,
       email: auth.email,
       role: auth.role,
+      avatarUrl: auth.avatarUrl ?? null,
     };
     localStorage.setItem("token", auth.token);
     localStorage.setItem("user", JSON.stringify(authUser));
     setUser(authUser);
+  }
+
+  function updateAvatarUrl(avatarUrl: string | null) {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, avatarUrl };
+      localStorage.setItem("user", JSON.stringify(next));
+      return next;
+    });
   }
 
   function logout() {
@@ -49,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, setSession, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, setSession, updateAvatarUrl, logout }}>
       {children}
     </AuthContext.Provider>
   );

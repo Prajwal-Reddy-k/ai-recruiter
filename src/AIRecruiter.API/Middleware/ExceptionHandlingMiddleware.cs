@@ -43,6 +43,10 @@ public class ExceptionHandlingMiddleware
                 Detail = ex.Message,
             };
             problem.Extensions["errorCode"] = ex.ErrorCode;
+            if (ex is ValidationException { FieldErrors: not null } validationEx)
+            {
+                problem.Extensions["fieldErrors"] = validationEx.FieldErrors;
+            }
 
             await context.Response.WriteAsJsonAsync(problem);
         }

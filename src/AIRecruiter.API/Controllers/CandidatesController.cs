@@ -54,6 +54,32 @@ public class CandidatesController : ControllerBase
         return File(content, contentType, fileName);
     }
 
+    [HttpPost("me/avatar")]
+    [RequestSizeLimit(6 * 1024 * 1024)]
+    public async Task<ActionResult<CandidateProfileDto>> UploadAvatar(IFormFile file, CancellationToken ct)
+    {
+        await using var stream = file.OpenReadStream();
+        var profile = await _profileService.UploadAvatarAsync(
+            User.GetUserId(), stream, file.FileName, file.ContentType, file.Length, ct);
+        return Ok(profile);
+    }
+
+    [HttpDelete("me/avatar")]
+    public async Task<ActionResult<CandidateProfileDto>> RemoveAvatar(CancellationToken ct)
+    {
+        var profile = await _profileService.RemoveAvatarAsync(User.GetUserId(), ct);
+        return Ok(profile);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{candidateProfileId:int}/avatar")]
+    public async Task<IActionResult> GetAvatar(int candidateProfileId, CancellationToken ct)
+    {
+        var (content, contentType) = await _profileService.OpenAvatarAsync(candidateProfileId, ct);
+        Response.Headers.CacheControl = "public, max-age=300";
+        return File(content, contentType);
+    }
+
     [HttpGet("me/saved-jobs")]
     public async Task<IActionResult> GetSavedJobs(CancellationToken ct)
     {

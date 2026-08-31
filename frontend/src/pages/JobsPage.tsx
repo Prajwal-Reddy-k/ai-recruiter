@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
 import { getOpenJobs } from "../api/jobs";
 import { getSavedJobs } from "../api/savedJobs";
@@ -33,10 +34,11 @@ const JOB_TYPE_OPTIONS = ["FullTime", "PartTime", "Contract", "Internship", "Fre
 
 export default function JobsPage() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [allJobs, setAllJobs] = useState<JobPosting[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [titleQuery, setTitleQuery] = useState("");
+  const [titleQuery, setTitleQuery] = useState(() => searchParams.get("q") ?? "");
   const [locationQuery, setLocationQuery] = useState("");
   const [filters, setFilters] = useState<JobFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
@@ -46,6 +48,14 @@ export default function JobsPage() {
   useEffect(() => {
     void loadJobs();
   }, []);
+
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q !== null) {
+      setTitleQuery(q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     if (user?.role === "Candidate") {

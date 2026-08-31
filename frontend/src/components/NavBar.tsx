@@ -5,6 +5,7 @@ import { useAuth } from "../context/AuthContext";
 import { getExternalJobsAvailability } from "../api/externalJobs";
 import { getMyNotifications, getUnreadCount, markNotificationRead } from "../api/notifications";
 import type { AppNotification } from "../types";
+import { resolveAvatarUrl } from "../utils/format";
 import Avatar from "./ui/Avatar";
 
 export default function NavBar() {
@@ -159,7 +160,7 @@ export default function NavBar() {
                   aria-expanded={menuOpen}
                   aria-haspopup="menu"
                 >
-                  <Avatar name={user?.fullName ?? "?"} size={32} />
+                  <Avatar name={user?.fullName ?? "?"} size={32} src={resolveAvatarUrl(user?.avatarUrl)} />
                   <span className="user-menu-name">{user?.fullName}</span>
                   <ChevronDown size={16} />
                 </button>

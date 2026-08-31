@@ -1,8 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
+using AIRecruiter.Application.Common;
 using AIRecruiter.Application.DTOs.Auth;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
+using AIRecruiter.Application.Validation;
 using AIRecruiter.Domain.Entities;
 using AIRecruiter.Domain.Enums;
 using AIRecruiter.Infrastructure.Email;
@@ -50,6 +52,13 @@ public class AuthService : IAuthService
             throw new ValidationException("Only Candidate or Recruiter roles can self-register.");
         }
 
+        if (!CandidateProfileValidator.IsValidFullName(request.FullName))
+        {
+            throw new ValidationException(
+                "Full name is required and must be 2-100 characters using letters, spaces, and reasonable punctuation only.",
+                new Dictionary<string, string> { ["fullName"] = "Enter a valid name (2-100 characters, letters and spaces only)." });
+        }
+
         var normalizedEmail = NormalizeEmail(request.Email);
 
         var emailExists = await _db.Users.AnyAsync(u => u.Email == normalizedEmail, ct);
@@ -95,7 +104,20 @@ public class AuthService : IAuthService
         }
 
         var (token, expiresAt) = _tokenService.GenerateToken(user);
-        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt);
+        var avatarUrl = await GetAvatarUrlAsync(user, ct);
+        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt, avatarUrl);
+    }
+
+    private async Task<string?> GetAvatarUrlAsync(User user, CancellationToken ct)
+    {
+        if (user.Role != UserRole.Candidate) return null;
+
+        var profile = await _db.CandidateProfiles
+            .Where(c => c.UserId == user.Id)
+            .Select(c => new { c.Id, c.AvatarStorageKey })
+            .FirstOrDefaultAsync(ct);
+
+        return profile is null ? null : AvatarUrlFormatter.Format(profile.Id, profile.AvatarStorageKey);
     }
 
     public async Task<ForgotPasswordResponse> ForgotPasswordAsync(ForgotPasswordRequest request, string ipAddress, CancellationToken ct = default)

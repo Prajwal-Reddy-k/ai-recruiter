@@ -6,4 +6,5 @@ public record AuthResponse(
     string Email,
     string Role,
     string Token,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    string? AvatarUrl = null);

@@ -267,11 +267,62 @@
   color: var(--nav-text);
 }
 
+.app-footer-roles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.app-footer-roles-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
+  gap: var(--space-2) var(--space-4);
+}
+
+.app-footer-contact-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--nav-text-muted);
+  text-decoration: none;
+  font-size: var(--font-sm);
+}
+
+a.app-footer-contact-item:hover {
+  color: var(--nav-text);
+}
+
 .app-footer-bottom {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   padding: var(--space-4) var(--space-6);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
   text-align: center;
   font-size: var(--font-xs);
+}
+
+.app-footer-bottom-links {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.app-footer-bottom-links a {
+  color: var(--nav-text-muted);
+  text-decoration: none;
+}
+
+.app-footer-bottom-links a:hover {
+  color: var(--nav-text);
+}
+
+@media (max-width: 640px) {
+  .app-footer-bottom {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
 }
 
 /* ============================= Buttons ============================= */
@@ -719,6 +770,34 @@ input[type="checkbox"] {
   color: white;
   font-weight: var(--weight-semibold);
   flex-shrink: 0;
+}
+
+.ui-avatar-image {
+  object-fit: cover;
+  background: var(--color-surface-alt, #eee);
+}
+
+.avatar-upload {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.avatar-upload-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.avatar-upload-label {
+  cursor: pointer;
+}
+
+.avatar-upload .hint,
+.avatar-upload .field-error {
+  flex-basis: 100%;
 }
 
 /* ============================= Toasts ============================= */

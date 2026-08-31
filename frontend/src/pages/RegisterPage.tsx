@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { Briefcase, Search, UserRound } from "lucide-react";
 import { register } from "../api/auth";
 import type { UserRole } from "../types";
-import { getErrorCode, getErrorMessage } from "../utils/errors";
+import { getErrorCode, getErrorMessage, getFieldErrors } from "../utils/errors";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
 import PasswordInput from "../components/ui/PasswordInput";
@@ -29,7 +29,14 @@ export default function RegisterPage() {
     setFieldErrors({});
 
     const clientErrors: FieldErrors = {};
-    if (!fullName.trim()) clientErrors.fullName = "Full name is required.";
+    const trimmedName = fullName.trim();
+    if (!trimmedName) {
+      clientErrors.fullName = "Full name is required.";
+    } else if (trimmedName.length < 2 || trimmedName.length > 100) {
+      clientErrors.fullName = "Full name must be between 2 and 100 characters.";
+    } else if (!/^[\p{L}\s.'-]+$/u.test(trimmedName)) {
+      clientErrors.fullName = "Full name can only contain letters, spaces, and reasonable punctuation.";
+    }
     if (!email.trim()) clientErrors.email = "Email is required.";
     if (password.length < 6) clientErrors.password = "Password must be at least 6 characters.";
     if (Object.keys(clientErrors).length > 0) {
@@ -47,9 +54,12 @@ export default function RegisterPage() {
     } catch (err) {
       const message = getErrorMessage(err, "Registration failed");
       const code = getErrorCode(err);
+      const serverFieldErrors = getFieldErrors(err);
 
       if (code === "EMAIL_TAKEN") {
         setFieldErrors({ email: message });
+      } else if (serverFieldErrors) {
+        setFieldErrors(serverFieldErrors as FieldErrors);
       } else {
         setFieldErrors({ general: message });
       }

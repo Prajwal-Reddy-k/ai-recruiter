@@ -1,7 +1,11 @@
+using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Application.Validation;
 using AIRecruiter.Infrastructure.Locations;
+using AIRecruiter.Infrastructure.Options;
 using AIRecruiter.Infrastructure.Persistence;
 using AIRecruiter.Infrastructure.Services;
+using Microsoft.Extensions.Options;
+using Moq;
 
 namespace AIRecruiter.UnitTests.TestHelpers;
 
@@ -11,6 +15,29 @@ namespace AIRecruiter.UnitTests.TestHelpers;
 public static class TestServiceFactory
 {
     public static IndiaLocationValidator CreateLocationValidator() => new(new IndianLocationCatalog());
+
+    /// <summary>Builds a real <see cref="CandidateProfileService"/> for tests that need one as
+    /// a collaborator (not the direct subject under test) — callers that DO test avatar/resume
+    /// upload behavior directly should construct their own mocks instead.</summary>
+    public static CandidateProfileService CreateCandidateProfileService(
+        AppDbContext db,
+        IResumeStorage resumeStorage,
+        IResumeTextExtractorFactory extractorFactory,
+        ResumeFileValidator resumeValidator)
+    {
+        var avatarProcessor = new Mock<IAvatarImageProcessor>();
+        return new CandidateProfileService(
+            db,
+            resumeStorage,
+            extractorFactory,
+            resumeValidator,
+            Options.Create(new ResumeStorageOptions()),
+            CreateLocationValidator(),
+            new CandidateProfileValidator(),
+            new ImageFileValidator(),
+            avatarProcessor.Object,
+            Options.Create(new AvatarOptions()));
+    }
 
     public static AuditLogService CreateAuditLog(AppDbContext db) => new(db);
 
