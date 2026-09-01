@@ -15,16 +15,25 @@ public record AdminJobDto(
     int ApplicationCount,
     DateTime CreatedAt);
 
-public record JobReportDto(
+public record ReportDto(
     int Id,
-    int JobPostingId,
-    string JobTitle,
+    string EntityType,
+    int EntityId,
+    string? EntityLabel,
     string ReportedByName,
     string Reason,
+    string? Details,
     string Status,
-    string? ResolutionNote,
+    string? ModerationNote,
+    string? ReviewedByName,
+    DateTime? ReviewedAt,
     DateTime CreatedAt);
 
 public record ModerateJobRequest(ModerationStatus ModerationStatus);
-public record ResolveReportRequest(ReportStatus Status, string? ResolutionNote);
-public record ReportJobRequest(string Reason);
+public record SetReportStatusRequest(ReportStatus Status, string? Note);
+public record AddReportNoteRequest(string Note);
+public record SubmitReportRequest(ReportedEntityType EntityType, int EntityId, ReportReason Reason, string? Details);
+
+/// <summary>Convenience shape for the existing job-scoped report endpoint
+/// (POST /api/jobs/{id}/report) — EntityType/EntityId are implied by the route.</summary>
+public record ReportJobRequest(ReportReason Reason, string? Details);

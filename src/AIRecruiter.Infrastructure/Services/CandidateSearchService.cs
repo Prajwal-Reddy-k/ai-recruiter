@@ -146,6 +146,50 @@ public class CandidateSearchService : ICandidateSearchService
         return await _candidateProfileService.OpenResumeAsync(application.CandidateProfile, ct);
     }
 
+    public async Task<IReadOnlyList<DiscoverableCandidateDto>> GetDiscoverableCandidatesAsync(DiscoverCandidatesQuery query, CancellationToken ct = default)
+    {
+        var candidates = _db.CandidateProfiles
+            .Include(c => c.User)
+            .Where(c => c.ProfileVisibility == ProfileVisibility.VisibleToRecruiters)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query.City))
+        {
+            candidates = candidates.Where(c => c.City == query.City);
+        }
+        if (!string.IsNullOrWhiteSpace(query.State))
+        {
+            candidates = candidates.Where(c => c.State == query.State);
+        }
+        if (query.MinExperienceYears.HasValue)
+        {
+            candidates = candidates.Where(c => c.TotalExperienceYears != null && c.TotalExperienceYears >= query.MinExperienceYears.Value);
+        }
+        if (query.AvailabilityStatus.HasValue)
+        {
+            candidates = candidates.Where(c => c.AvailabilityStatus == query.AvailabilityStatus.Value);
+        }
+
+        var results = await candidates.OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt).ToListAsync(ct);
+
+        if (!string.IsNullOrWhiteSpace(query.Skills))
+        {
+            var skills = query.Skills.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            results = results.Where(c => c.SkillsCsv != null && skills.Any(s => c.SkillsCsv.Contains(s, StringComparison.OrdinalIgnoreCase))).ToList();
+        }
+
+        return results.Select(c => new DiscoverableCandidateDto(
+            c.Id,
+            c.User.FullName,
+            c.Headline,
+            c.SkillsCsv,
+            IndiaLocationFormatter.Format(c.City, c.State, isRemote: false),
+            c.TotalExperienceYears,
+            c.AvailabilityStatus.ToString(),
+            c.RemotePreference,
+            c.PreferredJobTypesCsv)).ToList();
+    }
+
     private async Task<int> GetCallerCompanyIdAsync(int recruiterUserId, CancellationToken ct)
     {
         var companyId = await _db.RecruiterProfiles

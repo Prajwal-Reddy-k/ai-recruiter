@@ -63,3 +63,24 @@ public record CandidateSearchDetailDto(
     string DisplayLocation,
     string? SkillsCsv,
     IReadOnlyList<CandidateApplicationSummaryDto> Applications);
+
+public record DiscoverCandidatesQuery(
+    string? Skills = null,
+    string? City = null,
+    string? State = null,
+    int? MinExperienceYears = null,
+    AvailabilityStatus? AvailabilityStatus = null);
+
+/// <summary>A candidate discoverable ahead of applying anywhere — only ever populated from
+/// profiles with ProfileVisibility == VisibleToRecruiters. Deliberately excludes contact
+/// details (phone, links) and resume access; those still require an actual application.</summary>
+public record DiscoverableCandidateDto(
+    int CandidateProfileId,
+    string FullName,
+    string? Headline,
+    string? SkillsCsv,
+    string DisplayLocation,
+    int? TotalExperienceYears,
+    string AvailabilityStatus,
+    bool? RemotePreference,
+    string? PreferredJobTypesCsv);

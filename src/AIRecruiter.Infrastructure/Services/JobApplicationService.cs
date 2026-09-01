@@ -46,6 +46,16 @@ public class JobApplicationService : IJobApplicationService
             throw new ConflictException("JOB_CLOSED", "This job is no longer accepting applications.");
         }
 
+        if (job.ModerationStatus != ModerationStatus.Approved)
+        {
+            throw new ConflictException("JOB_CLOSED", "This job is no longer accepting applications.");
+        }
+
+        if (job.ApplicationDeadlineUtc.HasValue && job.ApplicationDeadlineUtc.Value < DateTime.UtcNow)
+        {
+            throw new ConflictException("JOB_EXPIRED", "The application deadline for this job has passed.");
+        }
+
         var alreadyApplied = await _db.JobApplications.AnyAsync(
             a => a.JobPostingId == jobPostingId && a.CandidateProfileId == candidateProfile.Id, ct);
         if (alreadyApplied)
@@ -140,7 +150,7 @@ public class JobApplicationService : IJobApplicationService
             .FirstOrDefaultAsync(a => a.Id == applicationId, ct)
             ?? throw new NotFoundException("Application not found.");
 
-        EnsureCanViewApplication(application, userId, role);
+        await EnsureCanViewApplicationAsync(application, userId, role, ct);
 
         return ToDetailDto(application);
     }
@@ -151,7 +161,7 @@ public class JobApplicationService : IJobApplicationService
             .FirstOrDefaultAsync(j => j.Id == jobPostingId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
-        if (job.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, job.RecruiterProfile.UserId, job.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this job's applicants.");
         }
@@ -173,7 +183,7 @@ public class JobApplicationService : IJobApplicationService
             .FirstOrDefaultAsync(a => a.Id == applicationId, ct)
             ?? throw new NotFoundException("Application not found.");
 
-        EnsureCanViewApplication(application, userId, role);
+        await EnsureCanViewApplicationAsync(application, userId, role, ct);
 
         return await _candidateProfileService.OpenResumeAsync(application.CandidateProfile, ct);
     }
@@ -187,7 +197,7 @@ public class JobApplicationService : IJobApplicationService
             .FirstOrDefaultAsync(a => a.Id == applicationId, ct)
             ?? throw new NotFoundException("Application not found.");
 
-        if (application.JobPosting.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this application.");
         }
@@ -255,10 +265,11 @@ public class JobApplicationService : IJobApplicationService
         return ToDto(application, application.JobPosting.Title, application.JobPosting.Company.Name);
     }
 
-    private static void EnsureCanViewApplication(JobApplication application, int userId, string role)
+    private async Task EnsureCanViewApplicationAsync(JobApplication application, int userId, string role, CancellationToken ct)
     {
         var isOwningCandidate = role == "Candidate" && application.CandidateProfile.UserId == userId;
-        var isOwningRecruiter = role == "Recruiter" && application.JobPosting.RecruiterProfile.UserId == userId;
+        var isOwningRecruiter = role == "Recruiter" && await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(
+            _db, userId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct);
 
         if (!isOwningCandidate && !isOwningRecruiter)
         {

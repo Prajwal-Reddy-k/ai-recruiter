@@ -1,6 +1,7 @@
 import apiClient from "./client";
 import { applicationStatusToNumber, type ApplicationStatusValue } from "./applications";
-import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption } from "../types";
+import { availabilityStatusToNumber, type AvailabilityStatusValue } from "./candidates";
+import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption, DiscoverableCandidate } from "../types";
 
 export interface CandidateSearchFilters {
   skills?: string;
@@ -57,5 +58,26 @@ export async function exportCandidatesCsv(filters: CandidateSearchFilters): Prom
 
 export async function downloadCandidateResume(applicationId: number): Promise<Blob> {
   const { data } = await apiClient.get(`/recruiters/candidates/applications/${applicationId}/resume`, { responseType: "blob" });
+  return data;
+}
+
+export interface DiscoverCandidatesFilters {
+  skills?: string;
+  city?: string;
+  state?: string;
+  minExperienceYears?: number;
+  availabilityStatus?: AvailabilityStatusValue;
+}
+
+export async function getDiscoverableCandidates(filters: DiscoverCandidatesFilters): Promise<DiscoverableCandidate[]> {
+  const { data } = await apiClient.get<DiscoverableCandidate[]>("/recruiters/candidates/discoverable", {
+    params: {
+      skills: filters.skills || undefined,
+      city: filters.city || undefined,
+      state: filters.state || undefined,
+      minExperienceYears: filters.minExperienceYears,
+      availabilityStatus: filters.availabilityStatus ? availabilityStatusToNumber[filters.availabilityStatus] : undefined,
+    },
+  });
   return data;
 }

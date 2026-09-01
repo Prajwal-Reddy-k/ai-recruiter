@@ -1,22 +1,34 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, Briefcase, Building2, CalendarClock, ClipboardList, FilePlus2, Users } from "lucide-react";
+import { BarChart3, Briefcase, Building2, CalendarClock, ClipboardList, FilePlus2, Mail, Users } from "lucide-react";
 import { getRecruiterDashboard } from "../api/dashboard";
 import { getMyActivity } from "../api/recruiters";
+import { getMyJobs } from "../api/jobs";
+import { getSentInvitations } from "../api/invitations";
 import { useAuth } from "../context/AuthContext";
-import type { AuditLogEntry, RecruiterDashboard } from "../types";
+import type { AuditLogEntry, Invitation, RecruiterDashboard, RecruiterJobSummary } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { toIST } from "../utils/format";
 import Card from "../components/ui/Card";
 import StatCard from "../components/ui/StatCard";
 import SectionHeader from "../components/ui/SectionHeader";
 import EmptyState from "../components/ui/EmptyState";
-import { StatusBadge } from "../components/ui/Badge";
+import { Badge, StatusBadge } from "../components/ui/Badge";
+
+const EXPIRING_SOON_WINDOW_DAYS = 3;
+
+function isExpiringSoon(job: RecruiterJobSummary["job"]): boolean {
+  if (job.status !== "Open" || !job.applicationDeadlineUtc) return false;
+  const daysLeft = (new Date(job.applicationDeadlineUtc).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+  return daysLeft >= 0 && daysLeft <= EXPIRING_SOON_WINDOW_DAYS;
+}
 
 export default function RecruiterDashboardPage() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<RecruiterDashboard | null>(null);
   const [activity, setActivity] = useState<AuditLogEntry[]>([]);
+  const [expiringJobs, setExpiringJobs] = useState<RecruiterJobSummary[]>([]);
+  const [sentInvitations, setSentInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,6 +40,12 @@ export default function RecruiterDashboardPage() {
     getMyActivity()
       .then(setActivity)
       .catch(() => setActivity([]));
+    getMyJobs()
+      .then((jobs) => setExpiringJobs(jobs.filter((s) => isExpiringSoon(s.job))))
+      .catch(() => setExpiringJobs([]));
+    getSentInvitations()
+      .then((all) => setSentInvitations(all.slice(0, 8)))
+      .catch(() => setSentInvitations([]));
   }, []);
 
   if (loading) return <p>Loading...</p>;
@@ -76,6 +94,32 @@ export default function RecruiterDashboardPage() {
           <li><Link to="/recruiter/analytics"><BarChart3 size={16} /> Analytics</Link></li>
         </ul>
       </Card>
+
+      {expiringJobs.length > 0 && (
+        <div className="onboarding-banner">
+          <div className="onboarding-banner-text">
+            <h3>{expiringJobs.length} job{expiringJobs.length === 1 ? "" : "s"} expiring soon</h3>
+            <p>{expiringJobs.map((s) => s.job.title).join(", ")}</p>
+          </div>
+          <Link to="/jobs/mine" className="btn btn-primary btn-sm">Manage Jobs</Link>
+        </div>
+      )}
+
+      {sentInvitations.length > 0 && (
+        <Card>
+          <SectionHeader title="Sent invitations" as="h3" />
+          <ul className="job-list-compact">
+            {sentInvitations.map((inv) => (
+              <li key={inv.id} className="job-card job-card-compact">
+                <Link to={`/jobs/${inv.jobPostingId}`}>
+                  <h4><Mail size={16} style={{ verticalAlign: "-3px", marginRight: "0.3rem" }} />{inv.candidateFullName}</h4>
+                </Link>
+                <p>{inv.jobTitle} · <Badge tone={inv.status === "Accepted" ? "success" : inv.status === "Declined" || inv.status === "Expired" ? "danger" : "info"}>{inv.status}</Badge></p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {dashboard.upcomingInterviews.length > 0 && (
         <Card>

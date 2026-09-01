@@ -1,14 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Briefcase, Copy, Pencil } from "lucide-react";
-import { archiveJob, closeJob, duplicateJob, getMyJobs, publishJob, reopenJob, type JobStatusValue } from "../api/jobs";
+import { archiveJob, closeJob, duplicateJob, extendJobDeadline, getMyJobs, publishJob, reopenJob, type JobStatusValue } from "../api/jobs";
 import type { RecruiterJobSummary } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
-import { StatusBadge } from "../components/ui/Badge";
+import { Badge, StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
+import FormField from "../components/ui/FormField";
+
+const EXPIRING_SOON_WINDOW_DAYS = 3;
+
+function expiryBadge(deadlineUtc: string | null, status: string) {
+  if (status !== "Open" || !deadlineUtc) return null;
+  const deadline = new Date(deadlineUtc).getTime();
+  const now = Date.now();
+  if (deadline < now) return <Badge tone="danger">Expired</Badge>;
+  const daysLeft = (deadline - now) / (1000 * 60 * 60 * 24);
+  if (daysLeft <= EXPIRING_SOON_WINDOW_DAYS) return <Badge tone="warning">Expiring soon</Badge>;
+  return null;
+}
 
 type Tab = "All" | "Draft" | "Open" | "Closed" | "Archived";
 const TABS: { key: Tab; label: string }[] = [
@@ -34,6 +47,10 @@ export default function ManageJobsPage() {
   const [tab, setTab] = useState<Tab>("All");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction>(null);
+  const [deadlineTarget, setDeadlineTarget] = useState<{ jobId: number; jobTitle: string } | null>(null);
+  const [deadlineValue, setDeadlineValue] = useState("");
+  const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  const [deadlineSaving, setDeadlineSaving] = useState(false);
 
   useEffect(() => {
     void load();
@@ -129,6 +146,36 @@ export default function ManageJobsPage() {
     }
   }
 
+  function openDeadlineModal(jobId: number, jobTitle: string, currentDeadline: string | null) {
+    setDeadlineTarget({ jobId, jobTitle });
+    setDeadlineValue(currentDeadline ? currentDeadline.slice(0, 10) : "");
+    setDeadlineError(null);
+  }
+
+  async function handleSaveDeadline() {
+    if (!deadlineTarget) return;
+    if (!deadlineValue) {
+      setDeadlineError("Choose a date.");
+      return;
+    }
+    const iso = new Date(`${deadlineValue}T23:59:59`).toISOString();
+    if (new Date(iso).getTime() <= Date.now()) {
+      setDeadlineError("Deadline must be in the future.");
+      return;
+    }
+    setDeadlineSaving(true);
+    try {
+      const updated = await extendJobDeadline(deadlineTarget.jobId, iso);
+      setJobs((prev) => prev.map((s) => (s.job.id === updated.id ? { ...s, job: updated } : s)));
+      toast.success("Application deadline updated.");
+      setDeadlineTarget(null);
+    } catch (err) {
+      setDeadlineError(getErrorMessage(err, "Failed to update deadline"));
+    } finally {
+      setDeadlineSaving(false);
+    }
+  }
+
   if (loading) return <p>Loading...</p>;
 
   return (
@@ -173,12 +220,15 @@ export default function ManageJobsPage() {
               </Link>
               <p className="job-card-meta">
                 <StatusBadge status={job.status} />
+                {expiryBadge(job.applicationDeadlineUtc, job.status)}
                 <span>{job.displayLocation}</span>
                 <span>Created {new Date(job.createdAt).toLocaleDateString()}</span>
                 {job.publishedAt && <span>Published {new Date(job.publishedAt).toLocaleDateString()}</span>}
+                {job.applicationDeadlineUtc && <span>Deadline {new Date(job.applicationDeadlineUtc).toLocaleDateString()}</span>}
               </p>
               <p className="job-card-meta">
                 <span>{applicationCount} {applicationCount === 1 ? "application" : "applications"}</span>
+                {job.status === "Open" && applicationCount === 0 && <Badge tone="warning">No applications received</Badge>}
                 <span>{job.viewCount} {job.viewCount === 1 ? "view" : "views"}</span>
                 <span>Conversion: {conversionRate(job.viewCount, applicationCount)}</span>
               </p>
@@ -202,6 +252,16 @@ export default function ManageJobsPage() {
                     onClick={() => setConfirmAction({ kind: "close", jobId: job.id, jobTitle: job.title })}
                   >
                     Close job
+                  </button>
+                )}
+                {job.status === "Open" && (
+                  <button
+                    type="button"
+                    className="link-button"
+                    disabled={updatingId === job.id}
+                    onClick={() => openDeadlineModal(job.id, job.title, job.applicationDeadlineUtc)}
+                  >
+                    {job.applicationDeadlineUtc ? "Extend deadline" : "Set deadline"}
                   </button>
                 )}
                 {job.status === "Closed" && (
@@ -244,6 +304,25 @@ export default function ManageJobsPage() {
         {confirmAction?.kind === "close"
           ? `"${confirmAction.jobTitle}" will stop accepting new applications. You can reopen it later.`
           : `"${confirmAction?.jobTitle}" will be archived and can no longer be edited or reopened.`}
+      </Modal>
+
+      <Modal
+        open={deadlineTarget !== null}
+        onClose={() => setDeadlineTarget(null)}
+        title="Application deadline"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeadlineTarget(null)}>Cancel</Button>
+            <Button onClick={handleSaveDeadline} loading={deadlineSaving}>Save</Button>
+          </>
+        }
+      >
+        <p style={{ marginBottom: "0.75rem" }}>
+          Set the last day <strong>{deadlineTarget?.jobTitle}</strong> accepts applications. The job closes automatically once this date passes.
+        </p>
+        <FormField label="Deadline" htmlFor="deadline-date" error={deadlineError ?? undefined}>
+          <input id="deadline-date" type="date" value={deadlineValue} onChange={(e) => setDeadlineValue(e.target.value)} />
+        </FormField>
       </Modal>
     </div>
   );

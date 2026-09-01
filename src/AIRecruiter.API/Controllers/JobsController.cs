@@ -4,6 +4,7 @@ using AIRecruiter.API.Extensions;
 using AIRecruiter.Application.DTOs.Admin;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Application.Interfaces;
+using AIRecruiter.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,10 +15,12 @@ namespace AIRecruiter.API.Controllers;
 public class JobsController : ControllerBase
 {
     private readonly IJobPostingService _jobPostingService;
+    private readonly IModerationService _moderation;
 
-    public JobsController(IJobPostingService jobPostingService)
+    public JobsController(IJobPostingService jobPostingService, IModerationService moderation)
     {
         _jobPostingService = jobPostingService;
+        _moderation = moderation;
     }
 
     [HttpGet]
@@ -40,8 +43,9 @@ public class JobsController : ControllerBase
     {
         int? viewerUserId = User.Identity?.IsAuthenticated == true ? User.GetUserId() : null;
         var viewerKey = viewerUserId.HasValue ? $"u:{viewerUserId}" : HashAnonymousVisitor();
+        var isAdminViewer = User.Identity?.IsAuthenticated == true && User.IsInRole("Admin");
 
-        var job = await _jobPostingService.GetByIdAsync(id, viewerKey, viewerUserId, ct);
+        var job = await _jobPostingService.GetByIdAsync(id, viewerKey, viewerUserId, isAdminViewer, ct);
         return job is null ? NotFound() : Ok(job);
     }
 
@@ -81,8 +85,16 @@ public class JobsController : ControllerBase
     [HttpPost("{id:int}/report")]
     public async Task<IActionResult> Report(int id, ReportJobRequest request, CancellationToken ct)
     {
-        await _jobPostingService.ReportAsync(User.GetUserId(), id, request.Reason, ct);
+        await _moderation.SubmitReportAsync(User.GetUserId(), new SubmitReportRequest(ReportedEntityType.Job, id, request.Reason, request.Details), ct);
         return NoContent();
+    }
+
+    [Authorize(Roles = "Recruiter")]
+    [HttpPatch("{id:int}/deadline")]
+    public async Task<ActionResult<JobPostingDto>> ExtendDeadline(int id, UpdateJobDeadlineRequest request, CancellationToken ct)
+    {
+        var job = await _jobPostingService.ExtendDeadlineAsync(User.GetUserId(), id, request.ApplicationDeadlineUtc, ct);
+        return Ok(job);
     }
 
     /// <summary>Derives a non-reversible visitor key for anonymous view de-duplication —

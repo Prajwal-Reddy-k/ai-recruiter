@@ -7,23 +7,7 @@ import Card from "../components/ui/Card";
 import StatCard from "../components/ui/StatCard";
 import SectionHeader from "../components/ui/SectionHeader";
 import EmptyState from "../components/ui/EmptyState";
-
-function BarList({ items }: { items: { name: string; count: number }[] }) {
-  const max = Math.max(1, ...items.map((i) => i.count));
-  return (
-    <div className="bar-chart">
-      {items.map((item) => (
-        <div className="bar-chart-row" key={item.name}>
-          <span className="bar-chart-label">{item.name}</span>
-          <div className="bar-chart-track">
-            <div className="bar-chart-fill" style={{ width: `${(item.count / max) * 100}%` }} />
-          </div>
-          <span className="bar-chart-value">{item.count}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+import BarList from "../components/ui/BarList";
 
 export default function RecruiterAnalyticsPage() {
   const [data, setData] = useState<RecruiterAnalytics | null>(null);

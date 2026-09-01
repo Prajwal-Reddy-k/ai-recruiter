@@ -90,6 +90,28 @@ public class CandidateProfileValidator
         ValidateUrl(request.GithubUrl, "githubUrl", "GitHub", "github.com", errors);
         ValidateUrl(request.PortfolioUrl, "portfolioUrl", "portfolio/website", null, errors);
 
+        if (request.ExpectedSalaryMin is not null && (request.ExpectedSalaryMin < 0 || request.ExpectedSalaryMin > MaxSalary))
+        {
+            errors["expectedSalaryMin"] = "Minimum expected salary must be a realistic non-negative amount.";
+        }
+        if (request.ExpectedSalaryMax is not null && (request.ExpectedSalaryMax < 0 || request.ExpectedSalaryMax > MaxSalary))
+        {
+            errors["expectedSalaryMax"] = "Maximum expected salary must be a realistic non-negative amount.";
+        }
+        if (request.ExpectedSalaryMin is not null && request.ExpectedSalaryMax is not null && request.ExpectedSalaryMin > request.ExpectedSalaryMax)
+        {
+            errors["expectedSalaryMax"] = "Maximum expected salary must be greater than or equal to the minimum.";
+        }
+
+        if (request.NoticePeriodDays is not null && (request.NoticePeriodDays < 0 || request.NoticePeriodDays > 365))
+        {
+            errors["noticePeriodDays"] = "Notice period must be between 0 and 365 days.";
+        }
+
+        ValidateCsvList(request.PreferredJobTypesCsv, "preferredJobTypesCsv", "preferred job types", errors);
+        ValidateCsvList(request.PreferredLocationsCsv, "preferredLocationsCsv", "preferred locations", errors);
+        ValidateCsvList(request.PreferredRolesCsv, "preferredRolesCsv", "preferred roles", errors);
+
         return new CandidateProfileValidationResult(errors.Count == 0, errors, normalizedPhone);
     }
 
@@ -128,6 +150,24 @@ public class CandidateProfileValidator
         if (distinctCount != raw.Count)
         {
             errors["skills"] = "Remove duplicate skills.";
+        }
+    }
+
+    /// <summary>A lighter check than ValidateSkills (no dedup requirement) — just caps
+    /// item count and length, for the optional CSV-list preference fields.</summary>
+    private static void ValidateCsvList(string? csv, string field, string label, Dictionary<string, string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return;
+
+        var items = csv.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim()).Where(s => s.Length > 0).ToList();
+        if (items.Count > 15)
+        {
+            errors[field] = $"List at most 15 {label}.";
+            return;
+        }
+        if (items.Any(s => s.Length > 60))
+        {
+            errors[field] = $"Each of your {label} must be 60 characters or fewer.";
         }
     }
 

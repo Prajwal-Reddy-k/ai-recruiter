@@ -1,5 +1,6 @@
 using AIRecruiter.Application.DTOs.Candidates;
 using AIRecruiter.Application.Validation;
+using AIRecruiter.Domain.Enums;
 
 namespace AIRecruiter.UnitTests.Validation;
 
@@ -23,7 +24,16 @@ public class CandidateProfileValidatorTests
         Phone: "9876543210",
         LinkedInUrl: "https://linkedin.com/in/someone",
         GithubUrl: "https://github.com/someone",
-        PortfolioUrl: "https://someone.dev");
+        PortfolioUrl: "https://someone.dev",
+        AvailabilityStatus: AvailabilityStatus.OpenToOpportunities,
+        PreferredJobTypesCsv: null,
+        PreferredLocationsCsv: null,
+        RemotePreference: null,
+        ExpectedSalaryMin: null,
+        ExpectedSalaryMax: null,
+        NoticePeriodDays: null,
+        PreferredRolesCsv: null,
+        ProfileVisibility: ProfileVisibility.VisibleAfterApplying);
 
     [Fact]
     public void Validate_ValidRequest_Succeeds()

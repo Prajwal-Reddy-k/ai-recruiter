@@ -250,4 +250,44 @@ public class JobApplicationServiceTests
         var ex = await Assert.ThrowsAsync<ConflictException>(() => sut.ApplyAsync(candidate.Id, job.Id, null));
         Assert.Equal("JOB_CLOSED", ex.ErrorCode);
     }
+
+    [Fact]
+    public async Task ApplyAsync_JobHidden_ThrowsConflict()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        job.ModerationStatus = ModerationStatus.Hidden;
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => sut.ApplyAsync(candidate.Id, job.Id, null));
+        Assert.Equal("JOB_CLOSED", ex.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_PastDeadline_ThrowsConflict()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        job.ApplicationDeadlineUtc = DateTime.UtcNow.AddDays(-1);
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => sut.ApplyAsync(candidate.Id, job.Id, null));
+        Assert.Equal("JOB_EXPIRED", ex.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_FutureDeadline_Succeeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        job.ApplicationDeadlineUtc = DateTime.UtcNow.AddDays(7);
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var result = await sut.ApplyAsync(candidate.Id, job.Id, null);
+
+        Assert.NotNull(result);
+    }
 }

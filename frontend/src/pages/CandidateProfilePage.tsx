@@ -26,8 +26,23 @@ interface FieldErrors {
   linkedInUrl?: string;
   githubUrl?: string;
   portfolioUrl?: string;
+  expectedSalaryMin?: string;
+  expectedSalaryMax?: string;
+  noticePeriodDays?: string;
   general?: string;
 }
+
+const AVAILABILITY_OPTIONS = [
+  { value: "ActivelyLooking", label: "Actively looking" },
+  { value: "OpenToOpportunities", label: "Open to opportunities" },
+  { value: "NotLooking", label: "Not looking" },
+];
+
+const VISIBILITY_OPTIONS = [
+  { value: "VisibleToRecruiters", label: "Visible to recruiters (discoverable, even before applying)" },
+  { value: "VisibleAfterApplying", label: "Visible only after applying (default)" },
+  { value: "Private", label: "Private (never shown to recruiters)" },
+];
 
 const MAX_SKILLS = 30;
 const MAX_SKILL_LENGTH = 50;
@@ -79,6 +94,15 @@ export default function CandidateProfilePage() {
   const [linkedInUrl, setLinkedInUrl] = useState("");
   const [githubUrl, setGithubUrl] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [availabilityStatus, setAvailabilityStatus] = useState("OpenToOpportunities");
+  const [preferredJobTypesCsv, setPreferredJobTypesCsv] = useState("");
+  const [preferredLocationsCsv, setPreferredLocationsCsv] = useState("");
+  const [remotePreference, setRemotePreference] = useState("");
+  const [expectedSalaryMin, setExpectedSalaryMin] = useState("");
+  const [expectedSalaryMax, setExpectedSalaryMax] = useState("");
+  const [noticePeriodDays, setNoticePeriodDays] = useState("");
+  const [preferredRolesCsv, setPreferredRolesCsv] = useState("");
+  const [profileVisibility, setProfileVisibility] = useState("VisibleAfterApplying");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -119,6 +143,15 @@ export default function CandidateProfilePage() {
     setLinkedInUrl(data.linkedInUrl ?? "");
     setGithubUrl(data.githubUrl ?? "");
     setPortfolioUrl(data.portfolioUrl ?? "");
+    setAvailabilityStatus(data.availabilityStatus);
+    setPreferredJobTypesCsv(data.preferredJobTypesCsv ?? "");
+    setPreferredLocationsCsv(data.preferredLocationsCsv ?? "");
+    setRemotePreference(data.remotePreference === null ? "" : data.remotePreference ? "yes" : "no");
+    setExpectedSalaryMin(data.expectedSalaryMin?.toString() ?? "");
+    setExpectedSalaryMax(data.expectedSalaryMax?.toString() ?? "");
+    setNoticePeriodDays(data.noticePeriodDays?.toString() ?? "");
+    setPreferredRolesCsv(data.preferredRolesCsv ?? "");
+    setProfileVisibility(data.profileVisibility);
   }
 
   function runValidation(): FieldErrors {
@@ -194,6 +227,25 @@ export default function CandidateProfilePage() {
       if (err) errors.portfolioUrl = err;
     }
 
+    const minSalary = expectedSalaryMin ? Number(expectedSalaryMin) : null;
+    const maxSalary = expectedSalaryMax ? Number(expectedSalaryMax) : null;
+    if (expectedSalaryMin && (Number.isNaN(minSalary!) || minSalary! < 0)) {
+      errors.expectedSalaryMin = "Enter a valid amount.";
+    }
+    if (expectedSalaryMax && (Number.isNaN(maxSalary!) || maxSalary! < 0)) {
+      errors.expectedSalaryMax = "Enter a valid amount.";
+    }
+    if (minSalary !== null && maxSalary !== null && !Number.isNaN(minSalary) && !Number.isNaN(maxSalary) && minSalary > maxSalary) {
+      errors.expectedSalaryMax = "Maximum must be greater than or equal to minimum.";
+    }
+
+    if (noticePeriodDays) {
+      const days = Number(noticePeriodDays);
+      if (!Number.isInteger(days) || days < 0 || days > 365) {
+        errors.noticePeriodDays = "Enter a whole number of days between 0 and 365.";
+      }
+    }
+
     return errors;
   }
 
@@ -214,7 +266,7 @@ export default function CandidateProfilePage() {
 
     const clientErrors = runValidation();
     setFieldErrors(clientErrors);
-    setTouched(new Set(["headline", "summary", "education", "graduationYear", "experienceSummary", "totalExperienceYears", "skills", "phone", "linkedInUrl", "githubUrl", "portfolioUrl"]));
+    setTouched(new Set(["headline", "summary", "education", "graduationYear", "experienceSummary", "totalExperienceYears", "skills", "phone", "linkedInUrl", "githubUrl", "portfolioUrl", "expectedSalaryMin", "expectedSalaryMax", "noticePeriodDays"]));
 
     if (Object.keys(clientErrors).length > 0) {
       return;
@@ -237,6 +289,15 @@ export default function CandidateProfilePage() {
         linkedInUrl: linkedInUrl.trim() || undefined,
         githubUrl: githubUrl.trim() || undefined,
         portfolioUrl: portfolioUrl.trim() || undefined,
+        availabilityStatus,
+        preferredJobTypesCsv: preferredJobTypesCsv || undefined,
+        preferredLocationsCsv: preferredLocationsCsv || undefined,
+        remotePreference: remotePreference === "" ? undefined : remotePreference === "yes",
+        expectedSalaryMin: expectedSalaryMin ? Number(expectedSalaryMin) : undefined,
+        expectedSalaryMax: expectedSalaryMax ? Number(expectedSalaryMax) : undefined,
+        noticePeriodDays: noticePeriodDays ? Number(noticePeriodDays) : undefined,
+        preferredRolesCsv: preferredRolesCsv || undefined,
+        profileVisibility,
       });
       applyProfile(updated);
       setFieldErrors({});
@@ -453,6 +514,107 @@ export default function CandidateProfilePage() {
                 aria-required="true"
                 aria-invalid={!!visibleError("skills")}
               />
+            </FormField>
+          </div>
+
+          <div className="form-section">
+            <h3 className="form-section-title">Availability & preferences</h3>
+            <FormField label="Availability" htmlFor="profile-availability">
+              <select
+                id="profile-availability"
+                value={availabilityStatus}
+                onChange={(e) => setAvailabilityStatus(e.target.value)}
+              >
+                {AVAILABILITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Preferred job types" htmlFor="profile-pref-job-types" hint="Comma separated, e.g. FullTime, Contract">
+              <input
+                id="profile-pref-job-types"
+                value={preferredJobTypesCsv}
+                onChange={(e) => setPreferredJobTypesCsv(e.target.value)}
+                placeholder="FullTime, Contract"
+              />
+            </FormField>
+            <FormField label="Preferred locations" htmlFor="profile-pref-locations" hint="Comma separated Indian cities/states.">
+              <input
+                id="profile-pref-locations"
+                value={preferredLocationsCsv}
+                onChange={(e) => setPreferredLocationsCsv(e.target.value)}
+                placeholder="Bengaluru, Karnataka"
+              />
+            </FormField>
+            <FormField label="Preferred roles / skills focus" htmlFor="profile-pref-roles" hint="Comma separated, e.g. Backend Engineer, Team Lead">
+              <input
+                id="profile-pref-roles"
+                value={preferredRolesCsv}
+                onChange={(e) => setPreferredRolesCsv(e.target.value)}
+                placeholder="Backend Engineer, Team Lead"
+              />
+            </FormField>
+            <FormField label="Open to remote work?" htmlFor="profile-remote">
+              <select
+                id="profile-remote"
+                value={remotePreference}
+                onChange={(e) => setRemotePreference(e.target.value)}
+              >
+                <option value="">Not specified</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </FormField>
+            <div className="form-row">
+              <FormField label="Expected salary — min (₹/yr)" htmlFor="profile-salary-min" error={visibleError("expectedSalaryMin")}>
+                <input
+                  id="profile-salary-min"
+                  type="number"
+                  min={0}
+                  value={expectedSalaryMin}
+                  onChange={(e) => setExpectedSalaryMin(e.target.value)}
+                  onBlur={handleBlur("expectedSalaryMin")}
+                  aria-invalid={!!visibleError("expectedSalaryMin")}
+                />
+              </FormField>
+              <FormField label="Expected salary — max (₹/yr)" htmlFor="profile-salary-max" error={visibleError("expectedSalaryMax")}>
+                <input
+                  id="profile-salary-max"
+                  type="number"
+                  min={0}
+                  value={expectedSalaryMax}
+                  onChange={(e) => setExpectedSalaryMax(e.target.value)}
+                  onBlur={handleBlur("expectedSalaryMax")}
+                  aria-invalid={!!visibleError("expectedSalaryMax")}
+                />
+              </FormField>
+            </div>
+            <FormField label="Notice period (days)" htmlFor="profile-notice-period" error={visibleError("noticePeriodDays")}>
+              <input
+                id="profile-notice-period"
+                type="number"
+                min={0}
+                max={365}
+                value={noticePeriodDays}
+                onChange={(e) => setNoticePeriodDays(e.target.value)}
+                onBlur={handleBlur("noticePeriodDays")}
+                aria-invalid={!!visibleError("noticePeriodDays")}
+              />
+            </FormField>
+            <FormField
+              label="Profile visibility"
+              htmlFor="profile-visibility"
+              hint="Controls when recruiters can see this profile."
+            >
+              <select
+                id="profile-visibility"
+                value={profileVisibility}
+                onChange={(e) => setProfileVisibility(e.target.value)}
+              >
+                {VISIBILITY_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
             </FormField>
           </div>
 

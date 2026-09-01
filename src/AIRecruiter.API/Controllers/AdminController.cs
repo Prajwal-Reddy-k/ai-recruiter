@@ -39,10 +39,31 @@ public class AdminController : ControllerBase
         return Ok(job);
     }
 
-    [HttpPost("reports/{id:int}/resolve")]
-    public async Task<IActionResult> ResolveReport(int id, ResolveReportRequest request, CancellationToken ct)
+    [HttpPost("reports/{id:int}/status")]
+    public async Task<IActionResult> SetReportStatus(int id, SetReportStatusRequest request, CancellationToken ct)
     {
-        await _adminService.ResolveReportAsync(User.GetUserId(), id, request, ct);
+        await _adminService.SetReportStatusAsync(User.GetUserId(), id, request, ct);
+        return NoContent();
+    }
+
+    [HttpPost("reports/{id:int}/note")]
+    public async Task<IActionResult> AddReportNote(int id, AddReportNoteRequest request, CancellationToken ct)
+    {
+        await _adminService.AddReportNoteAsync(User.GetUserId(), id, request, ct);
+        return NoContent();
+    }
+
+    [HttpPost("users/{id:int}/suspend")]
+    public async Task<IActionResult> SuspendUser(int id, CancellationToken ct)
+    {
+        await _adminService.SuspendUserAsync(User.GetUserId(), id, ct);
+        return NoContent();
+    }
+
+    [HttpPost("users/{id:int}/reactivate")]
+    public async Task<IActionResult> ReactivateUser(int id, CancellationToken ct)
+    {
+        await _adminService.ReactivateUserAsync(User.GetUserId(), id, ct);
         return NoContent();
     }
 

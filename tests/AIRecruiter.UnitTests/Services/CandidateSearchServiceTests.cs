@@ -189,4 +189,50 @@ public class CandidateSearchServiceTests
         Assert.Single(matching);
         Assert.Empty(nonMatching);
     }
+
+    [Fact]
+    public async Task GetDiscoverableCandidatesAsync_OnlyReturnsVisibleToRecruiters()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+
+        var discoverableUser = new User { FullName = "Dana Discoverable", Email = "dana@example.com", Role = UserRole.Candidate };
+        var privateUser = new User { FullName = "Priya Private", Email = "priya@example.com", Role = UserRole.Candidate };
+        var afterApplyingUser = new User { FullName = "Alex AfterApplying", Email = "alex@example.com", Role = UserRole.Candidate };
+        db.Users.AddRange(discoverableUser, privateUser, afterApplyingUser);
+        await db.SaveChangesAsync();
+
+        db.CandidateProfiles.AddRange(
+            new CandidateProfile { UserId = discoverableUser.Id, ProfileVisibility = ProfileVisibility.VisibleToRecruiters },
+            new CandidateProfile { UserId = privateUser.Id, ProfileVisibility = ProfileVisibility.Private },
+            new CandidateProfile { UserId = afterApplyingUser.Id, ProfileVisibility = ProfileVisibility.VisibleAfterApplying });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var results = await sut.GetDiscoverableCandidatesAsync(new DiscoverCandidatesQuery(null, null, null, null, null));
+
+        Assert.Single(results);
+        Assert.Equal("Dana Discoverable", results[0].FullName);
+    }
+
+    [Fact]
+    public async Task GetDiscoverableCandidatesAsync_FiltersByAvailabilityStatus()
+    {
+        using var db = TestDbContextFactory.Create();
+        var activeUser = new User { FullName = "Active Ana", Email = "ana@example.com", Role = UserRole.Candidate };
+        var openUser = new User { FullName = "Open Omar", Email = "omar@example.com", Role = UserRole.Candidate };
+        db.Users.AddRange(activeUser, openUser);
+        await db.SaveChangesAsync();
+
+        db.CandidateProfiles.AddRange(
+            new CandidateProfile { UserId = activeUser.Id, ProfileVisibility = ProfileVisibility.VisibleToRecruiters, AvailabilityStatus = AvailabilityStatus.ActivelyLooking },
+            new CandidateProfile { UserId = openUser.Id, ProfileVisibility = ProfileVisibility.VisibleToRecruiters, AvailabilityStatus = AvailabilityStatus.OpenToOpportunities });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var results = await sut.GetDiscoverableCandidatesAsync(new DiscoverCandidatesQuery(null, null, null, null, AvailabilityStatus.ActivelyLooking));
+
+        Assert.Single(results);
+        Assert.Equal("Active Ana", results[0].FullName);
+    }
 }

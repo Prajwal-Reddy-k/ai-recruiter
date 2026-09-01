@@ -16,4 +16,12 @@ public interface ICandidateSearchService
     Task<string> ExportCsvAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default);
 
     Task<(Stream Content, string FileName, string ContentType)> DownloadApplicantResumeAsync(int recruiterUserId, int applicationId, CancellationToken ct = default);
+
+    /// <summary>Candidates discoverable ahead of applying anywhere — only
+    /// ProfileVisibility.VisibleToRecruiters candidates, available company-agnostically to
+    /// any authenticated Recruiter (not scoped to the caller's own company, since these
+    /// candidates opted into being found generally). This is the one genuinely new
+    /// visibility surface the platform adds; SearchAsync's applied-to-this-company gate is
+    /// unchanged.</summary>
+    Task<IReadOnlyList<DiscoverableCandidateDto>> GetDiscoverableCandidatesAsync(DiscoverCandidatesQuery query, CancellationToken ct = default);
 }

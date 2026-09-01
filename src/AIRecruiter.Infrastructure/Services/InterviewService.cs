@@ -28,7 +28,7 @@ public class InterviewService : IInterviewService
     {
         var application = await LoadApplicationAsync(applicationId, ct);
 
-        if (application.JobPosting.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this application.");
         }
@@ -66,7 +66,7 @@ public class InterviewService : IInterviewService
     {
         var (interview, application) = await LoadInterviewAsync(interviewId, ct);
 
-        if (application.JobPosting.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this interview.");
         }
@@ -107,7 +107,7 @@ public class InterviewService : IInterviewService
     {
         var (interview, application) = await LoadInterviewAsync(interviewId, ct);
 
-        if (application.JobPosting.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this interview.");
         }
@@ -136,7 +136,7 @@ public class InterviewService : IInterviewService
     {
         var (interview, application) = await LoadInterviewAsync(interviewId, ct);
 
-        if (application.JobPosting.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, application.JobPosting.RecruiterProfile.UserId, application.JobPosting.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this interview.");
         }

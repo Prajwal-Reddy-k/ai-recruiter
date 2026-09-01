@@ -41,6 +41,7 @@ export interface JobPosting {
   createdAt: string;
   viewCount: number;
   publishedAt: string | null;
+  applicationDeadlineUtc: string | null;
 }
 
 export interface CreateJobPostingRequest {
@@ -141,6 +142,15 @@ export interface CandidateProfile {
   resumeSizeBytes: number | null;
   resumeUploadedAt: string | null;
   avatarUrl: string | null;
+  availabilityStatus: string;
+  preferredJobTypesCsv: string | null;
+  preferredLocationsCsv: string | null;
+  remotePreference: boolean | null;
+  expectedSalaryMin: number | null;
+  expectedSalaryMax: number | null;
+  noticePeriodDays: number | null;
+  preferredRolesCsv: string | null;
+  profileVisibility: string;
 }
 
 export interface UpsertCandidateProfileRequest {
@@ -160,6 +170,15 @@ export interface UpsertCandidateProfileRequest {
   linkedInUrl?: string;
   githubUrl?: string;
   portfolioUrl?: string;
+  availabilityStatus: string;
+  preferredJobTypesCsv?: string;
+  preferredLocationsCsv?: string;
+  remotePreference?: boolean;
+  expectedSalaryMin?: number;
+  expectedSalaryMax?: number;
+  noticePeriodDays?: number;
+  preferredRolesCsv?: string;
+  profileVisibility: string;
 }
 
 export interface JobApplication {
@@ -397,15 +416,63 @@ export interface AdminJob {
   createdAt: string;
 }
 
-export interface JobReport {
+export interface Report {
+  id: number;
+  entityType: string;
+  entityId: number;
+  entityLabel: string | null;
+  reportedByName: string;
+  reason: string;
+  details: string | null;
+  status: string;
+  moderationNote: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+}
+
+// --- Candidate availability & preferences ---
+
+export interface CandidateAvailabilityPreferences {
+  availabilityStatus: string;
+  preferredJobTypesCsv: string | null;
+  preferredLocationsCsv: string | null;
+  remotePreference: boolean | null;
+  expectedSalaryMin: number | null;
+  expectedSalaryMax: number | null;
+  noticePeriodDays: number | null;
+  preferredRolesCsv: string | null;
+  profileVisibility: string;
+}
+
+// --- Recruiter candidate invitations ---
+
+export interface Invitation {
   id: number;
   jobPostingId: number;
   jobTitle: string;
-  reportedByName: string;
-  reason: string;
+  companyName: string;
+  candidateProfileId: number;
+  candidateFullName: string;
+  invitedByName: string;
+  message: string | null;
   status: string;
-  resolutionNote: string | null;
-  createdAt: string;
+  sentAtUtc: string;
+  viewedAtUtc: string | null;
+  respondedAtUtc: string | null;
+  expiresAtUtc: string;
+}
+
+export interface DiscoverableCandidate {
+  candidateProfileId: number;
+  fullName: string;
+  headline: string | null;
+  skillsCsv: string | null;
+  displayLocation: string;
+  totalExperienceYears: number | null;
+  availabilityStatus: string;
+  remotePreference: boolean | null;
+  preferredJobTypesCsv: string | null;
 }
 
 export interface AuditLogEntry {
@@ -494,4 +561,168 @@ export interface CandidateSearchDetail {
   displayLocation: string;
   skillsCsv: string | null;
   applications: CandidateApplicationSummary[];
+}
+
+// --- Job templates ---------------------------------------------------------
+
+export interface JobTemplate {
+  id: number;
+  title: string;
+  department: string | null;
+  description: string;
+  responsibilities: string | null;
+  requiredSkillsCsv: string | null;
+  preferredSkillsCsv: string | null;
+  minExperienceYears: number | null;
+  maxExperienceYears: number | null;
+  employmentType: string;
+  salaryVisible: boolean;
+  minSalary: number | null;
+  maxSalary: number | null;
+  defaultCity: string | null;
+  defaultState: string | null;
+  defaultLocality: string | null;
+  defaultIsRemote: boolean;
+  createdByName: string;
+  canManage: boolean;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface UpsertJobTemplateRequest {
+  title: string;
+  department?: string;
+  description: string;
+  responsibilities?: string;
+  requiredSkillsCsv?: string;
+  preferredSkillsCsv?: string;
+  minExperienceYears?: number;
+  maxExperienceYears?: number;
+  employmentType: number;
+  salaryVisible: boolean;
+  minSalary?: number;
+  maxSalary?: number;
+  defaultCity?: string;
+  defaultState?: string;
+  defaultLocality?: string;
+  defaultIsRemote: boolean;
+}
+
+// --- Messaging ---------------------------------------------------------
+
+export interface Message {
+  id: number;
+  jobApplicationId: number;
+  senderUserId: number;
+  senderRole: string;
+  senderName: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
+export interface ConversationSummary {
+  jobApplicationId: number;
+  jobId: number;
+  jobTitle: string;
+  companyName: string;
+  counterpartName: string;
+  lastMessageBody: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+// --- Interview feedback ---------------------------------------------------------
+
+export type InterviewRecommendationValue = "StrongNo" | "No" | "Neutral" | "Yes" | "StrongYes";
+
+export interface InterviewFeedback {
+  id: number;
+  interviewId: number;
+  recruiterProfileId: number;
+  authorName: string;
+  technicalScore: number;
+  communicationScore: number;
+  problemSolvingScore: number;
+  cultureFitScore: number;
+  recommendation: string;
+  strengths: string | null;
+  concerns: string | null;
+  privateNotes: string | null;
+  isDraft: boolean;
+  submittedAtUtc: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  canEdit: boolean;
+  isMine: boolean;
+}
+
+export interface UpsertInterviewFeedbackRequest {
+  technicalScore: number;
+  communicationScore: number;
+  problemSolvingScore: number;
+  cultureFitScore: number;
+  recommendation: number;
+  strengths?: string;
+  concerns?: string;
+  privateNotes?: string;
+}
+
+export interface InterviewFeedbackSummary {
+  interviewId: number;
+  scorecards: InterviewFeedback[];
+  averageTechnicalScore: number | null;
+  averageCommunicationScore: number | null;
+  averageProblemSolvingScore: number | null;
+  averageCultureFitScore: number | null;
+}
+
+// --- Hiring team ---------------------------------------------------------
+
+export type CompanyRoleValue = "Owner" | "Recruiter" | "HiringManager" | "Interviewer";
+
+export interface TeamMember {
+  recruiterProfileId: number;
+  userId: number;
+  fullName: string;
+  email: string;
+  designation: string | null;
+  companyRole: string;
+  joinedAt: string;
+}
+
+export interface JobAssignment {
+  jobPostingId: number;
+  recruiterProfileId: number;
+  recruiterName: string;
+  companyRole: string;
+  assignedAt: string;
+}
+
+export interface InterviewAssignment {
+  interviewId: number;
+  recruiterProfileId: number;
+  recruiterName: string;
+  companyRole: string;
+  assignedAt: string;
+}
+
+// --- Reports ---------------------------------------------------------
+
+export interface RecruiterReport {
+  jobsCreated: number;
+  jobsPublished: number;
+  jobsClosed: number;
+  totalApplications: number;
+  applicationsByJob: NamedCount[];
+  applicationsByCity: NamedCount[];
+  applicationsByState: NamedCount[];
+  statusFunnel: NamedCount[];
+  interviewsScheduledCount: number;
+  interviewsCompletedCount: number;
+  interviewConversionRatePercent: number | null;
+  averageDaysToInterview: number | null;
+  topCandidateSkills: NamedCount[];
+  offersMade: number;
+  hires: number;
 }

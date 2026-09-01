@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { CalendarClock, Download, MapPin, Phone, Video } from "lucide-react";
 import type { Interview } from "../types";
@@ -19,6 +19,7 @@ interface InterviewCardProps {
   onCancel?: () => Promise<void> | void;
   onComplete?: () => Promise<void> | void;
   onDownloadIcs?: () => void;
+  extraActions?: ReactNode;
 }
 
 export default function InterviewCard({
@@ -31,6 +32,7 @@ export default function InterviewCard({
   onCancel,
   onComplete,
   onDownloadIcs,
+  extraActions,
 }: InterviewCardProps) {
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -111,6 +113,8 @@ export default function InterviewCard({
         {interview.status === "Scheduled" && onDownloadIcs && (
           <Button size="sm" variant="ghost" icon={<Download size={14} />} onClick={onDownloadIcs}>Add to calendar (.ics)</Button>
         )}
+
+        {extraActions}
       </div>
 
       <Modal

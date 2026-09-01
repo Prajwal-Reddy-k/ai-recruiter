@@ -12,6 +12,7 @@ using AIRecruiter.Infrastructure.TextExtraction;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace AIRecruiter.Infrastructure;
 
@@ -50,11 +51,19 @@ public static class DependencyInjection
         services.AddScoped<IJobAlertService, JobAlertService>();
         services.AddScoped<ICompanyService, CompanyService>();
         services.AddScoped<IAdminService, AdminService>();
+        services.AddScoped<IModerationService, ModerationService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
         services.AddSingleton<IViewDeduplicationService, InMemoryViewDeduplicationService>();
         services.AddScoped<ICandidateSearchService, CandidateSearchService>();
         services.AddSingleton<IIpRateLimiter, InMemoryIpRateLimiter>();
+        services.AddScoped<IJobTemplateService, JobTemplateService>();
+        services.AddScoped<IMessageService, MessageService>();
+        services.AddScoped<IInterviewFeedbackService, InterviewFeedbackService>();
+        services.AddScoped<ITeamService, TeamService>();
+        services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IInvitationService, InvitationService>();
+        services.AddHostedService<JobLifecycleSweepService>();
 
         // Email: a real SMTP account (any provider) if fully configured; otherwise a
         // Development-only sender that logs the content locally; otherwise (e.g. Production

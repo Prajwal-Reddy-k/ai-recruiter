@@ -1,21 +1,34 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck } from "lucide-react";
 import {
+  addReportNote,
   getAdminCompanies,
   getAdminJobs,
   getAdminReports,
   getAdminUsers,
   getAuditLog,
   moderateJob,
-  resolveReport,
+  reactivateUser,
+  setReportStatus,
+  suspendUser,
   type ModerationStatusValue,
+  type ReportStatusValue,
 } from "../api/admin";
-import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, JobReport } from "../types";
+import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, Report } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
-import { StatusBadge } from "../components/ui/Badge";
+import { Badge, StatusBadge, type BadgeTone } from "../components/ui/Badge";
+import Modal from "../components/ui/Modal";
+import FormField from "../components/ui/FormField";
 
 type Tab = "users" | "companies" | "jobs" | "reports" | "audit";
+
+const REPORT_STATUS_TONES: Record<string, BadgeTone> = {
+  Open: "warning",
+  UnderReview: "info",
+  Resolved: "success",
+  Dismissed: "neutral",
+};
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "users", label: "Users" },
@@ -31,10 +44,14 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [companies, setCompanies] = useState<AdminCompany[]>([]);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
-  const [reports, setReports] = useState<JobReport[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [suspendTarget, setSuspendTarget] = useState<AdminUser | null>(null);
+  const [noteTarget, setNoteTarget] = useState<Report | null>(null);
+  const [noteText, setNoteText] = useState("");
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -61,23 +78,58 @@ export default function AdminPage() {
     }
   }
 
-  async function handleResolveReport(reportId: number) {
+  async function handleSetReportStatus(reportId: number, status: ReportStatusValue) {
     try {
-      await resolveReport(reportId, "Reviewed");
-      setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: "Reviewed" } : r)));
-      toast.success("Report marked reviewed.");
+      await setReportStatus(reportId, status);
+      setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status } : r)));
+      toast.success(`Report marked ${status.toLowerCase()}.`);
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to resolve report"));
+      toast.error(getErrorMessage(err, "Failed to update report"));
     }
   }
 
-  async function handleDismissReport(reportId: number) {
+  function openNoteModal(report: Report) {
+    setNoteTarget(report);
+    setNoteText(report.moderationNote ?? "");
+    setNoteError(null);
+  }
+
+  async function handleSaveNote() {
+    if (!noteTarget) return;
+    if (!noteText.trim()) {
+      setNoteError("Note cannot be empty.");
+      return;
+    }
     try {
-      await resolveReport(reportId, "Dismissed");
-      setReports((prev) => prev.map((r) => (r.id === reportId ? { ...r, status: "Dismissed" } : r)));
-      toast.success("Report dismissed.");
+      await addReportNote(noteTarget.id, noteText.trim());
+      setReports((prev) => prev.map((r) => (r.id === noteTarget.id ? { ...r, moderationNote: noteText.trim() } : r)));
+      toast.success("Note saved.");
+      setNoteTarget(null);
     } catch (err) {
-      toast.error(getErrorMessage(err, "Failed to dismiss report"));
+      setNoteError(getErrorMessage(err, "Failed to save note"));
+    }
+  }
+
+  async function handleSuspendConfirm() {
+    if (!suspendTarget) return;
+    try {
+      await suspendUser(suspendTarget.id);
+      setUsers((prev) => prev.map((u) => (u.id === suspendTarget.id ? { ...u, isActive: false } : u)));
+      toast.success(`${suspendTarget.fullName} suspended.`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to suspend user"));
+    } finally {
+      setSuspendTarget(null);
+    }
+  }
+
+  async function handleReactivate(user: AdminUser) {
+    try {
+      await reactivateUser(user.id);
+      setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, isActive: true } : u)));
+      toast.success(`${user.fullName} reactivated.`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to reactivate user"));
     }
   }
 
@@ -110,15 +162,24 @@ export default function AdminPage() {
         <div className="table-scroll">
           {tab === "users" && (
             <table className="dashboard-table">
-              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Joined</th></tr></thead>
+              <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Active</th><th>Joined</th><th>Actions</th></tr></thead>
               <tbody>
                 {users.map((u) => (
                   <tr key={u.id}>
                     <td>{u.fullName}</td>
                     <td>{u.email}</td>
                     <td>{u.role}</td>
-                    <td>{u.isActive ? "Yes" : "No"}</td>
+                    <td><Badge tone={u.isActive ? "success" : "danger"}>{u.isActive ? "Active" : "Suspended"}</Badge></td>
                     <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      {u.role !== "Admin" && (
+                        u.isActive ? (
+                          <button type="button" className="link-button" onClick={() => setSuspendTarget(u)}>Suspend</button>
+                        ) : (
+                          <button type="button" className="link-button" onClick={() => handleReactivate(u)}>Reactivate</button>
+                        )
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -172,21 +233,27 @@ export default function AdminPage() {
 
           {tab === "reports" && (
             <table className="dashboard-table">
-              <thead><tr><th>Job</th><th>Reported by</th><th>Reason</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Reported entity</th><th>Reported by</th><th>Reason</th><th>Details</th><th>Status</th><th>Note</th><th>Actions</th></tr></thead>
               <tbody>
                 {reports.map((r) => (
                   <tr key={r.id}>
-                    <td>{r.jobTitle}</td>
+                    <td>{r.entityType} — {r.entityLabel ?? `#${r.entityId}`}</td>
                     <td>{r.reportedByName}</td>
                     <td>{r.reason}</td>
-                    <td><StatusBadge status={r.status} /></td>
-                    <td style={{ display: "flex", gap: "0.5rem" }}>
-                      {r.status === "Pending" && (
-                        <>
-                          <button type="button" className="link-button" onClick={() => handleResolveReport(r.id)}>Mark reviewed</button>
-                          <button type="button" className="link-button" onClick={() => handleDismissReport(r.id)}>Dismiss</button>
-                        </>
+                    <td>{r.details ?? "—"}</td>
+                    <td><Badge tone={REPORT_STATUS_TONES[r.status] ?? "neutral"}>{r.status}</Badge></td>
+                    <td>{r.moderationNote ?? "—"}</td>
+                    <td style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {r.status === "Open" && (
+                        <button type="button" className="link-button" onClick={() => handleSetReportStatus(r.id, "UnderReview")}>Start review</button>
                       )}
+                      {r.status !== "Resolved" && (
+                        <button type="button" className="link-button" onClick={() => handleSetReportStatus(r.id, "Resolved")}>Resolve</button>
+                      )}
+                      {r.status !== "Dismissed" && (
+                        <button type="button" className="link-button" onClick={() => handleSetReportStatus(r.id, "Dismissed")}>Dismiss</button>
+                      )}
+                      <button type="button" className="link-button" onClick={() => openNoteModal(r)}>Add note</button>
                     </td>
                   </tr>
                 ))}
@@ -211,6 +278,44 @@ export default function AdminPage() {
           )}
         </div>
       )}
+
+      <Modal
+        open={suspendTarget !== null}
+        onClose={() => setSuspendTarget(null)}
+        title="Suspend user"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setSuspendTarget(null)}>Cancel</button>
+            <button type="button" className="btn btn-danger" onClick={handleSuspendConfirm}>Suspend</button>
+          </>
+        }
+      >
+        <p>
+          Suspend <strong>{suspendTarget?.fullName}</strong>? They will be immediately signed out and unable to log in
+          or use the platform until reactivated.
+        </p>
+      </Modal>
+
+      <Modal
+        open={noteTarget !== null}
+        onClose={() => setNoteTarget(null)}
+        title="Moderation note"
+        footer={
+          <>
+            <button type="button" className="btn btn-secondary" onClick={() => setNoteTarget(null)}>Cancel</button>
+            <button type="button" className="btn btn-primary" onClick={handleSaveNote}>Save note</button>
+          </>
+        }
+      >
+        <FormField label="Internal note" htmlFor="moderation-note" error={noteError ?? undefined}>
+          <textarea
+            id="moderation-note"
+            rows={4}
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+          />
+        </FormField>
+      </Modal>
     </div>
   );
 }

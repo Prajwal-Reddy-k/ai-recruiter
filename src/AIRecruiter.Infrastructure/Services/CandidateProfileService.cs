@@ -90,6 +90,17 @@ public class CandidateProfileService : ICandidateProfileService
         profile.LinkedInUrl = request.LinkedInUrl?.Trim();
         profile.GithubUrl = request.GithubUrl?.Trim();
         profile.PortfolioUrl = request.PortfolioUrl?.Trim();
+
+        profile.AvailabilityStatus = request.AvailabilityStatus;
+        profile.PreferredJobTypesCsv = request.PreferredJobTypesCsv;
+        profile.PreferredLocationsCsv = request.PreferredLocationsCsv;
+        profile.RemotePreference = request.RemotePreference;
+        profile.ExpectedSalaryMin = request.ExpectedSalaryMin;
+        profile.ExpectedSalaryMax = request.ExpectedSalaryMax;
+        profile.NoticePeriodDays = request.NoticePeriodDays;
+        profile.PreferredRolesCsv = request.PreferredRolesCsv;
+        profile.ProfileVisibility = request.ProfileVisibility;
+
         profile.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
@@ -320,5 +331,14 @@ public class CandidateProfileService : ICandidateProfileService
         p.ResumeOriginalFileName,
         p.ResumeSizeBytes,
         p.ResumeUploadedAt,
-        AvatarUrlFormatter.Format(p.Id, p.AvatarStorageKey));
+        AvatarUrlFormatter.Format(p.Id, p.AvatarStorageKey),
+        p.AvailabilityStatus.ToString(),
+        p.PreferredJobTypesCsv,
+        p.PreferredLocationsCsv,
+        p.RemotePreference,
+        p.ExpectedSalaryMin,
+        p.ExpectedSalaryMax,
+        p.NoticePeriodDays,
+        p.PreferredRolesCsv,
+        p.ProfileVisibility.ToString());
 }

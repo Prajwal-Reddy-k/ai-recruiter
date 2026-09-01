@@ -1,4 +1,5 @@
 using AIRecruiter.Domain.Common;
+using AIRecruiter.Domain.Enums;
 
 namespace AIRecruiter.Domain.Entities;
 
@@ -40,6 +41,20 @@ public class CandidateProfile : BaseEntity
     public string? AvatarContentType { get; set; }
     public long? AvatarSizeBytes { get; set; }
     public DateTime? AvatarUploadedAt { get; set; }
+
+    public AvailabilityStatus AvailabilityStatus { get; set; } = AvailabilityStatus.OpenToOpportunities;
+    public string? PreferredJobTypesCsv { get; set; }
+    public string? PreferredLocationsCsv { get; set; }
+    public bool? RemotePreference { get; set; }
+    public decimal? ExpectedSalaryMin { get; set; }
+    public decimal? ExpectedSalaryMax { get; set; }
+    public int? NoticePeriodDays { get; set; }
+    public string? PreferredRolesCsv { get; set; }
+
+    /// <summary>Defaults to VisibleAfterApplying — exactly matching the platform's behavior
+    /// before this field existed, so no existing candidate becomes newly exposed or newly
+    /// hidden by the migration that adds this column.</summary>
+    public ProfileVisibility ProfileVisibility { get; set; } = ProfileVisibility.VisibleAfterApplying;
 
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<SavedJob> SavedJobs { get; set; } = new List<SavedJob>();

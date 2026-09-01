@@ -23,7 +23,16 @@ public record CandidateProfileDto(
     string? ResumeOriginalFileName,
     long? ResumeSizeBytes,
     DateTime? ResumeUploadedAt,
-    string? AvatarUrl);
+    string? AvatarUrl,
+    string AvailabilityStatus,
+    string? PreferredJobTypesCsv,
+    string? PreferredLocationsCsv,
+    bool? RemotePreference,
+    decimal? ExpectedSalaryMin,
+    decimal? ExpectedSalaryMax,
+    int? NoticePeriodDays,
+    string? PreferredRolesCsv,
+    string ProfileVisibility);
 
 public record UpsertCandidateProfileRequest(
     string? Headline,
@@ -41,4 +50,13 @@ public record UpsertCandidateProfileRequest(
     string? Phone,
     string? LinkedInUrl,
     string? GithubUrl,
-    string? PortfolioUrl);
+    string? PortfolioUrl,
+    Domain.Enums.AvailabilityStatus AvailabilityStatus,
+    string? PreferredJobTypesCsv,
+    string? PreferredLocationsCsv,
+    bool? RemotePreference,
+    decimal? ExpectedSalaryMin,
+    decimal? ExpectedSalaryMax,
+    int? NoticePeriodDays,
+    string? PreferredRolesCsv,
+    Domain.Enums.ProfileVisibility ProfileVisibility);

@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Search, Users } from "lucide-react";
+import { Download, Search, Send, Users } from "lucide-react";
 import {
   downloadCandidateResume,
   exportCandidatesCsv,
   getCandidateDetail,
+  getDiscoverableCandidates,
   searchCandidates,
   type CandidateSearchFilters,
+  type DiscoverCandidatesFilters,
 } from "../api/recruiterCandidates";
 import { updateApplicationStatus, type ApplicationStatusValue } from "../api/applications";
-import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption } from "../types";
+import { inviteCandidate } from "../api/invitations";
+import { getMyJobs } from "../api/jobs";
+import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption, DiscoverableCandidate, RecruiterJobSummary } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { saveBlobAsFile } from "../utils/download";
 import { toIST } from "../utils/format";
@@ -18,6 +22,7 @@ import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
+import FormField from "../components/ui/FormField";
 
 const STATUS_OPTIONS: ApplicationStatusValue[] = [
   "Applied", "Screening", "Shortlisted", "InterviewScheduled", "InterviewCompleted", "Offer", "Hired", "Rejected", "Withdrawn",
@@ -30,8 +35,11 @@ const SORT_OPTIONS: { value: CandidateSortOption; label: string }[] = [
   { value: "NameAlphabetical", label: "Name (A–Z)" },
 ];
 
+type ViewMode = "applicants" | "discover";
+
 export default function CandidateSearchPage() {
   const toast = useToast();
+  const [view, setView] = useState<ViewMode>("applicants");
   const [results, setResults] = useState<CandidateSearchResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,6 +50,18 @@ export default function CandidateSearchPage() {
   const [detail, setDetail] = useState<CandidateSearchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [discoverFilters, setDiscoverFilters] = useState<DiscoverCandidatesFilters>({});
+  const [discoverResults, setDiscoverResults] = useState<DiscoverableCandidate[]>([]);
+  const [discoverLoading, setDiscoverLoading] = useState(false);
+  const [discoverError, setDiscoverError] = useState<string | null>(null);
+
+  const [inviteTarget, setInviteTarget] = useState<DiscoverableCandidate | null>(null);
+  const [openJobs, setOpenJobs] = useState<RecruiterJobSummary[]>([]);
+  const [inviteJobId, setInviteJobId] = useState<number | "">("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSending, setInviteSending] = useState(false);
 
   useEffect(() => {
     void runSearch();
@@ -106,13 +126,138 @@ export default function CandidateSearchPage() {
     }
   }
 
+  async function runDiscoverSearch() {
+    setDiscoverLoading(true);
+    setDiscoverError(null);
+    try {
+      setDiscoverResults(await getDiscoverableCandidates(discoverFilters));
+    } catch (err) {
+      setDiscoverError(getErrorMessage(err, "Failed to load discoverable candidates"));
+    } finally {
+      setDiscoverLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (view === "discover" && discoverResults.length === 0 && !discoverLoading) {
+      void runDiscoverSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
+
+  async function openInviteModal(candidate: DiscoverableCandidate) {
+    setInviteTarget(candidate);
+    setInviteJobId("");
+    setInviteMessage("");
+    setInviteError(null);
+    try {
+      const jobs = await getMyJobs();
+      setOpenJobs(jobs.filter((j) => j.job.status === "Open"));
+    } catch {
+      setOpenJobs([]);
+    }
+  }
+
+  async function handleSendInvite() {
+    if (!inviteTarget || !inviteJobId) {
+      setInviteError("Choose a job to invite the candidate to.");
+      return;
+    }
+    setInviteSending(true);
+    setInviteError(null);
+    try {
+      await inviteCandidate(Number(inviteJobId), inviteTarget.candidateProfileId, inviteMessage.trim() || undefined);
+      toast.success(`Invitation sent to ${inviteTarget.fullName}.`);
+      setInviteTarget(null);
+    } catch (err) {
+      setInviteError(getErrorMessage(err, "Failed to send invitation"));
+    } finally {
+      setInviteSending(false);
+    }
+  }
+
   return (
     <div>
       <div className="page-header">
         <h1><Users size={24} style={{ verticalAlign: "-4px", marginRight: "0.5rem" }} />Candidate Search</h1>
-        <p>Search everyone who has applied to your company's jobs.</p>
+        <p>Search everyone who has applied to your company's jobs, or discover candidates open to being invited.</p>
       </div>
 
+      <div className="admin-tabs" role="tablist" style={{ marginBottom: "1.5rem" }}>
+        <button type="button" role="tab" aria-selected={view === "applicants"} className={`admin-tab ${view === "applicants" ? "admin-tab-active" : ""}`} onClick={() => setView("applicants")}>
+          Applicants
+        </button>
+        <button type="button" role="tab" aria-selected={view === "discover"} className={`admin-tab ${view === "discover" ? "admin-tab-active" : ""}`} onClick={() => setView("discover")}>
+          Discover candidates
+        </button>
+      </div>
+
+      {view === "discover" ? (
+        <div>
+          <div className="ui-card ui-card-padded" style={{ marginBottom: "1.5rem" }}>
+            <div className="form-row">
+              <input
+                placeholder="Skills (comma separated)"
+                value={discoverFilters.skills ?? ""}
+                onChange={(e) => setDiscoverFilters((f) => ({ ...f, skills: e.target.value }))}
+              />
+              <input
+                placeholder="City"
+                value={discoverFilters.city ?? ""}
+                onChange={(e) => setDiscoverFilters((f) => ({ ...f, city: e.target.value }))}
+              />
+              <input
+                placeholder="State"
+                value={discoverFilters.state ?? ""}
+                onChange={(e) => setDiscoverFilters((f) => ({ ...f, state: e.target.value }))}
+              />
+            </div>
+            <div className="form-actions">
+              <Button icon={<Search size={16} />} onClick={runDiscoverSearch} loading={discoverLoading}>Search</Button>
+            </div>
+          </div>
+
+          {discoverError && <p className="error" style={{ marginBottom: "1rem" }}>{discoverError}</p>}
+
+          {discoverLoading ? (
+            <p>Loading...</p>
+          ) : discoverResults.length === 0 ? (
+            <EmptyState icon={<Users size={32} />} title="No discoverable candidates match these filters" description="Candidates appear here once they set their profile visibility to 'Visible to recruiters'." />
+          ) : (
+            <div className="table-scroll">
+              <table className="dashboard-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Skills</th>
+                    <th>Location</th>
+                    <th>Experience</th>
+                    <th>Availability</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {discoverResults.map((c) => (
+                    <tr key={c.candidateProfileId}>
+                      <td>{c.fullName}</td>
+                      <td>{c.skillsCsv ?? "—"}</td>
+                      <td>{c.displayLocation}</td>
+                      <td>{c.totalExperienceYears != null ? `${c.totalExperienceYears} yrs` : "—"}</td>
+                      <td><StatusBadge status={c.availabilityStatus} /></td>
+                      <td>
+                        <button type="button" className="link-button" onClick={() => openInviteModal(c)}>
+                          <Send size={13} style={{ verticalAlign: "-2px", marginRight: "0.2rem" }} />Invite to Apply
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      ) : (
+      <>
       <div className="ui-card ui-card-padded" style={{ marginBottom: "1.5rem" }}>
         <div className="form-row">
           <input
@@ -213,6 +358,8 @@ export default function CandidateSearchPage() {
           </table>
         </div>
       )}
+      </>
+      )}
 
       <Modal
         open={detailLoading || detail !== null || detailError !== null}
@@ -283,6 +430,36 @@ export default function CandidateSearchPage() {
             ))}
           </div>
         )}
+      </Modal>
+
+      <Modal
+        open={inviteTarget !== null}
+        onClose={() => setInviteTarget(null)}
+        title={`Invite ${inviteTarget?.fullName ?? "candidate"} to apply`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setInviteTarget(null)}>Cancel</Button>
+            <Button onClick={handleSendInvite} loading={inviteSending}>Send invitation</Button>
+          </>
+        }
+      >
+        <FormField label="Job" htmlFor="invite-job" required error={!inviteJobId ? inviteError ?? undefined : undefined}>
+          <select id="invite-job" value={inviteJobId} onChange={(e) => setInviteJobId(e.target.value ? Number(e.target.value) : "")}>
+            <option value="">Select an open job...</option>
+            {openJobs.map((s) => <option key={s.job.id} value={s.job.id}>{s.job.title}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Message" htmlFor="invite-message" hint="Optional — up to 2000 characters.">
+          <textarea
+            id="invite-message"
+            rows={4}
+            value={inviteMessage}
+            onChange={(e) => setInviteMessage(e.target.value)}
+            maxLength={2000}
+            placeholder="Tell them why you think they'd be a great fit..."
+          />
+        </FormField>
+        {inviteJobId && inviteError && <p className="error">{inviteError}</p>}
       </Modal>
     </div>
   );

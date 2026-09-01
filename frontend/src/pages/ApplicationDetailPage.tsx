@@ -30,6 +30,8 @@ import FormField from "../components/ui/FormField";
 import { StatusBadge } from "../components/ui/Badge";
 import InterviewCard from "../components/InterviewCard";
 import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
+import MessageThread from "../components/MessageThread";
+import FeedbackSummary from "../components/FeedbackSummary";
 
 const TERMINAL_STATUSES = new Set(["Withdrawn", "Rejected", "Hired"]);
 
@@ -276,6 +278,15 @@ export default function ApplicationDetailPage() {
             ))}
           </div>
         )}
+
+        {user?.role === "Recruiter" && interviews.filter((iv) => iv.status === "Completed").map((iv) => (
+          <FeedbackSummary key={iv.id} interviewId={iv.id} />
+        ))}
+
+        <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>
+          <h3 style={{ marginBottom: "0.75rem" }}>Messages</h3>
+          <MessageThread applicationId={application.id} />
+        </Card>
 
         {application.statusHistory.length > 0 && (
           <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>

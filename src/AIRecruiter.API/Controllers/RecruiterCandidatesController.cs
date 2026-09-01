@@ -39,6 +39,20 @@ public class RecruiterCandidatesController : ControllerBase
         return Ok(results);
     }
 
+    [HttpGet("discoverable")]
+    public async Task<ActionResult<IReadOnlyList<DiscoverableCandidateDto>>> GetDiscoverable(
+        [FromQuery] string? skills,
+        [FromQuery] string? city,
+        [FromQuery] string? state,
+        [FromQuery] int? minExperienceYears,
+        [FromQuery] AvailabilityStatus? availabilityStatus,
+        CancellationToken ct = default)
+    {
+        var query = new DiscoverCandidatesQuery(skills, city, state, minExperienceYears, availabilityStatus);
+        var results = await _candidateSearch.GetDiscoverableCandidatesAsync(query, ct);
+        return Ok(results);
+    }
+
     [HttpGet("{candidateProfileId:int}")]
     public async Task<ActionResult<CandidateSearchDetailDto>> GetDetail(int candidateProfileId, CancellationToken ct)
     {

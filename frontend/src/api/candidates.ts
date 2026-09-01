@@ -1,13 +1,31 @@
 import apiClient from "./client";
 import type { CandidateProfile, UpsertCandidateProfileRequest } from "../types";
 
+export type AvailabilityStatusValue = "ActivelyLooking" | "OpenToOpportunities" | "NotLooking";
+export const availabilityStatusToNumber: Record<AvailabilityStatusValue, number> = {
+  ActivelyLooking: 1,
+  OpenToOpportunities: 2,
+  NotLooking: 3,
+};
+
+export type ProfileVisibilityValue = "VisibleToRecruiters" | "VisibleAfterApplying" | "Private";
+export const profileVisibilityToNumber: Record<ProfileVisibilityValue, number> = {
+  VisibleToRecruiters: 1,
+  VisibleAfterApplying: 2,
+  Private: 3,
+};
+
 export async function getMyCandidateProfile(): Promise<CandidateProfile> {
   const { data } = await apiClient.get<CandidateProfile>("/candidates/me");
   return data;
 }
 
 export async function upsertMyCandidateProfile(payload: UpsertCandidateProfileRequest): Promise<CandidateProfile> {
-  const { data } = await apiClient.put<CandidateProfile>("/candidates/me", payload);
+  const { data } = await apiClient.put<CandidateProfile>("/candidates/me", {
+    ...payload,
+    availabilityStatus: availabilityStatusToNumber[payload.availabilityStatus as AvailabilityStatusValue],
+    profileVisibility: profileVisibilityToNumber[payload.profileVisibility as ProfileVisibilityValue],
+  });
   return data;
 }
 

@@ -33,6 +33,11 @@ import AdminPage from "./pages/AdminPage";
 import CandidateInterviewsPage from "./pages/CandidateInterviewsPage";
 import RecruiterInterviewsPage from "./pages/RecruiterInterviewsPage";
 import PlaceholderInfoPage from "./pages/PlaceholderInfoPage";
+import RecruiterJobTemplatesPage from "./pages/RecruiterJobTemplatesPage";
+import RecruiterMessagesPage from "./pages/RecruiterMessagesPage";
+import CandidateMessagesPage from "./pages/CandidateMessagesPage";
+import RecruiterTeamPage from "./pages/RecruiterTeamPage";
+import RecruiterReportsPage from "./pages/RecruiterReportsPage";
 import "./App.css";
 
 export default function App() {
@@ -164,6 +169,46 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Recruiter"]}>
                   <RecruiterInterviewsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/templates"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterJobTemplatesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/messages"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterMessagesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/messages"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <CandidateMessagesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/team"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterTeamPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/reports"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterReportsPage />
                 </ProtectedRoute>
               }
             />

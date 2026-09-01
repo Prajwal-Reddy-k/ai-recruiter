@@ -21,4 +21,5 @@ public record JobPostingDto(
     string? CompanyLogoUrl,
     DateTime CreatedAt,
     int ViewCount,
-    DateTime? PublishedAt);
+    DateTime? PublishedAt,
+    DateTime? ApplicationDeadlineUtc);

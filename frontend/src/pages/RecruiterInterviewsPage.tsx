@@ -7,7 +7,9 @@ import { useToast } from "../context/ToastContext";
 import { saveBlobAsFile } from "../utils/download";
 import InterviewCard from "../components/InterviewCard";
 import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
+import ScorecardModal from "../components/ScorecardModal";
 import EmptyState from "../components/ui/EmptyState";
+import Button from "../components/ui/Button";
 
 type Tab = "All" | "Proposed" | "Scheduled" | "Completed" | "Cancelled" | "Declined";
 const TABS: Tab[] = ["All", "Proposed", "Scheduled", "Completed", "Cancelled", "Declined"];
@@ -19,6 +21,7 @@ export default function RecruiterInterviewsPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("All");
   const [rescheduleTarget, setRescheduleTarget] = useState<Interview | null>(null);
+  const [scorecardTarget, setScorecardTarget] = useState<Interview | null>(null);
 
   useEffect(() => {
     void load(tab);
@@ -117,10 +120,22 @@ export default function RecruiterInterviewsPage() {
               onCancel={() => handleCancel(iv.id)}
               onComplete={() => handleComplete(iv.id)}
               onDownloadIcs={() => handleDownloadIcs(iv.id)}
+              extraActions={
+                iv.status === "Completed" ? (
+                  <Button size="sm" variant="secondary" onClick={() => setScorecardTarget(iv)}>Feedback</Button>
+                ) : undefined
+              }
             />
           ))}
         </div>
       )}
+
+      <ScorecardModal
+        open={scorecardTarget !== null}
+        onClose={() => setScorecardTarget(null)}
+        interviewId={scorecardTarget?.id ?? 0}
+        candidateName={scorecardTarget?.candidateFullName}
+      />
 
       <ScheduleInterviewModal
         open={rescheduleTarget !== null}

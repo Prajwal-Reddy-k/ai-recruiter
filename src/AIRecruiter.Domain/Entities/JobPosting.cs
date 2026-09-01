@@ -24,6 +24,12 @@ public class JobPosting : BaseEntity
     public int ViewCount { get; set; }
     public DateTime? PublishedAt { get; set; }
 
+    /// <summary>Applications stop being accepted, and the job auto-closes, once this passes
+    /// — enforced both by JobApplicationService.ApplyAsync and the JobLifecycleSweepService
+    /// background sweep. Null means no deadline (open indefinitely, as before this field
+    /// existed).</summary>
+    public DateTime? ApplicationDeadlineUtc { get; set; }
+
     public int CompanyId { get; set; }
     public Company Company { get; set; } = null!;
 
@@ -32,5 +38,6 @@ public class JobPosting : BaseEntity
 
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<SavedJob> SavedByCandidates { get; set; } = new List<SavedJob>();
-    public ICollection<JobReport> Reports { get; set; } = new List<JobReport>();
+    public ICollection<JobAssignment> Assignments { get; set; } = new List<JobAssignment>();
+    public ICollection<Invitation> Invitations { get; set; } = new List<Invitation>();
 }

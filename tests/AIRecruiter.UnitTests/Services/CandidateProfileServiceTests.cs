@@ -255,7 +255,11 @@ public class CandidateProfileServiceTests
             ExperienceSummary: null, TotalExperienceYears: null,
             City: "Bengaluru", State: "Karnataka", Locality: null,
             CurrentSalary: null, ExpectedSalary: null, SkillsCsv: "C#",
-            Phone: null, LinkedInUrl: null, GithubUrl: null, PortfolioUrl: null);
+            Phone: null, LinkedInUrl: null, GithubUrl: null, PortfolioUrl: null,
+            AvailabilityStatus: AvailabilityStatus.OpenToOpportunities,
+            PreferredJobTypesCsv: null, PreferredLocationsCsv: null, RemotePreference: null,
+            ExpectedSalaryMin: null, ExpectedSalaryMax: null, NoticePeriodDays: null,
+            PreferredRolesCsv: null, ProfileVisibility: ProfileVisibility.VisibleAfterApplying);
 
         var ex = await Assert.ThrowsAsync<ValidationException>(() => sut.UpsertMyProfileAsync(user.Id, request));
         Assert.NotNull(ex.FieldErrors);
@@ -275,7 +279,11 @@ public class CandidateProfileServiceTests
             ExperienceSummary: null, TotalExperienceYears: 5,
             City: "Bengaluru", State: "Karnataka", Locality: null,
             CurrentSalary: null, ExpectedSalary: null, SkillsCsv: "C#, c#, SQL Server",
-            Phone: "+91 98765 43210", LinkedInUrl: null, GithubUrl: null, PortfolioUrl: null);
+            Phone: "+91 98765 43210", LinkedInUrl: null, GithubUrl: null, PortfolioUrl: null,
+            AvailabilityStatus: AvailabilityStatus.OpenToOpportunities,
+            PreferredJobTypesCsv: null, PreferredLocationsCsv: null, RemotePreference: null,
+            ExpectedSalaryMin: null, ExpectedSalaryMax: null, NoticePeriodDays: null,
+            PreferredRolesCsv: null, ProfileVisibility: ProfileVisibility.VisibleAfterApplying);
 
         // Duplicate skills are a validation error, not silently accepted — fix the request first.
         var deduped = request with { SkillsCsv = "C#, SQL Server" };

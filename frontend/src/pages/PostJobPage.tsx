@@ -1,10 +1,12 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { Building2 } from "lucide-react";
+import { Building2, FileStack } from "lucide-react";
 import { createJob, getJobById, updateJob, type JobTypeValue } from "../api/jobs";
+import { getMyJobTemplates } from "../api/jobTemplates";
 import { getOnboardingStatus } from "../api/recruiters";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
+import type { JobTemplate } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import FormField from "../components/ui/FormField";
@@ -48,6 +50,8 @@ export default function PostJobPage() {
   const [checkingOnboarding, setCheckingOnboarding] = useState(true);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [loadingJob, setLoadingJob] = useState(isEditMode);
+  const [templates, setTemplates] = useState<JobTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -55,7 +59,33 @@ export default function PostJobPage() {
     getOnboardingStatus()
       .then((status) => setIsOnboarded(status.isOnboarded))
       .finally(() => setCheckingOnboarding(false));
+    if (!isEditMode) {
+      getMyJobTemplates().then(setTemplates).catch(() => setTemplates([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function applyTemplate(templateId: string) {
+    setSelectedTemplateId(templateId);
+    const template = templates.find((t) => t.id === Number(templateId));
+    if (!template) return;
+
+    setTitle(template.title);
+    setDescription(template.description);
+    setSkills(template.requiredSkillsCsv ?? "");
+    setState(template.defaultIsRemote ? "" : template.defaultState ?? "");
+    setCity(template.defaultIsRemote ? "" : template.defaultCity ?? "");
+    setLocality(template.defaultIsRemote ? "" : template.defaultLocality ?? "");
+    setIsRemote(template.defaultIsRemote);
+    setJobType(template.employmentType as JobTypeValue);
+    setMinExperienceYears(template.minExperienceYears?.toString() ?? "");
+    setMaxExperienceYears(template.maxExperienceYears?.toString() ?? "");
+    if (template.salaryVisible) {
+      setMinSalary(template.minSalary?.toString() ?? "");
+      setMaxSalary(template.maxSalary?.toString() ?? "");
+    }
+    toast.success(`Prefilled from "${template.title}" template — review and edit before publishing.`);
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -173,6 +203,20 @@ export default function PostJobPage() {
             : "Fill in the details below, then save as a draft or publish right away."}
         </p>
       </div>
+
+      {!isEditMode && templates.length > 0 && (
+        <Card className="ui-card-padded" style={{ marginBottom: "1.5rem" }}>
+          <h3 className="form-section-title"><FileStack size={16} style={{ verticalAlign: "-3px", marginRight: "0.35rem" }} />Use Template</h3>
+          <FormField label="Template" htmlFor="job-template" hint="Prefills the fields below — you can still edit everything before publishing.">
+            <select id="job-template" value={selectedTemplateId} onChange={(e) => applyTemplate(e.target.value)}>
+              <option value="">Start from scratch</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.title}{t.department ? ` — ${t.department}` : ""}</option>
+              ))}
+            </select>
+          </FormField>
+        </Card>
+      )}
 
       <Card className="ui-card-padded">
         <form onSubmit={isEditMode ? handleSaveEdit : (e) => handleCreate(e, false)} noValidate>

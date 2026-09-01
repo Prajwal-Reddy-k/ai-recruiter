@@ -27,4 +27,7 @@ public class Interview : BaseEntity
 
     public int CreatedByUserId { get; set; }
     public User CreatedByUser { get; set; } = null!;
+
+    public ICollection<InterviewFeedback> Feedback { get; set; } = new List<InterviewFeedback>();
+    public ICollection<InterviewAssignment> Assignments { get; set; } = new List<InterviewAssignment>();
 }

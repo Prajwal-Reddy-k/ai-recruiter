@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Bookmark, BookmarkCheck, Briefcase, Clock, MapPin, Wallet } from "lucide-react";
 import { getJobById, getOpenJobs, reportJob } from "../api/jobs";
+import { REPORT_REASON_LABELS, type ReportReasonValue } from "../api/moderationReports";
 import { applyToJob } from "../api/applications";
 import { getSavedJobs, saveJob, unsaveJob } from "../api/savedJobs";
 import type { JobPosting } from "../types";
@@ -28,7 +29,8 @@ export default function JobDetailPage() {
   const [applyState, setApplyState] = useState<ApplyState>("idle");
   const [applyError, setApplyError] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
+  const [reportReason, setReportReason] = useState<ReportReasonValue | "">("");
+  const [reportDetails, setReportDetails] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -86,10 +88,10 @@ export default function JobDetailPage() {
   }
 
   async function handleSubmitReport() {
-    if (!job || !reportReason.trim()) return;
+    if (!job || !reportReason) return;
     setReportSubmitting(true);
     try {
-      await reportJob(job.id, reportReason.trim());
+      await reportJob(job.id, reportReason, reportDetails.trim() || undefined);
       setReportSubmitted(true);
       toast.success("Report submitted. Our moderation team will review it.");
     } catch (err) {
@@ -119,6 +121,11 @@ export default function JobDetailPage() {
           <span className="job-detail-fact"><Briefcase size={16} /> {formatExperienceRange(job.minExperienceYears, job.maxExperienceYears)}</span>
           <span className="job-detail-fact"><Wallet size={16} /> {formatSalaryRange(job.minSalary, job.maxSalary)}</span>
           <span className="job-detail-fact"><Clock size={16} /> Posted {formatRelativeTime(job.createdAt)}</span>
+          {job.applicationDeadlineUtc && (
+            <span className="job-detail-fact">
+              <Clock size={16} /> Applications close {new Date(job.applicationDeadlineUtc).toLocaleDateString()}
+            </span>
+          )}
         </div>
 
         {skills.length > 0 && (
@@ -140,6 +147,11 @@ export default function JobDetailPage() {
             <span className="job-detail-fact"><MapPin size={16} /> {job.displayLocation}</span>
             <span className="job-detail-fact"><Briefcase size={16} /> {formatExperienceRange(job.minExperienceYears, job.maxExperienceYears)}</span>
             <span className="job-detail-fact"><Wallet size={16} /> {formatSalaryRange(job.minSalary, job.maxSalary)}</span>
+            {job.applicationDeadlineUtc && (
+              <span className="job-detail-fact">
+                <Clock size={16} /> Closes {new Date(job.applicationDeadlineUtc).toLocaleDateString()}
+              </span>
+            )}
           </div>
 
           {isAuthenticated && user?.role === "Candidate" ? (
@@ -205,6 +217,7 @@ export default function JobDetailPage() {
         onClose={() => {
           setReportOpen(false);
           setReportReason("");
+          setReportDetails("");
           setReportSubmitted(false);
         }}
         title="Report this job"
@@ -212,7 +225,7 @@ export default function JobDetailPage() {
           !reportSubmitted && (
             <>
               <Button variant="secondary" onClick={() => setReportOpen(false)}>Cancel</Button>
-              <Button onClick={handleSubmitReport} loading={reportSubmitting} disabled={!reportReason.trim()}>
+              <Button onClick={handleSubmitReport} loading={reportSubmitting} disabled={!reportReason}>
                 Submit report
               </Button>
             </>
@@ -222,15 +235,29 @@ export default function JobDetailPage() {
         {reportSubmitted ? (
           <p className="success">Thanks — your report has been submitted for review.</p>
         ) : (
-          <FormField label="Reason" htmlFor="report-reason" required>
-            <textarea
-              id="report-reason"
-              rows={4}
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value)}
-              placeholder="Tell us what's wrong with this listing..."
-            />
-          </FormField>
+          <>
+            <FormField label="Reason" htmlFor="report-reason" required>
+              <select
+                id="report-reason"
+                value={reportReason}
+                onChange={(e) => setReportReason(e.target.value as ReportReasonValue)}
+              >
+                <option value="">Select a reason...</option>
+                {REPORT_REASON_LABELS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Additional details" htmlFor="report-details" hint="Optional">
+              <textarea
+                id="report-details"
+                rows={4}
+                value={reportDetails}
+                onChange={(e) => setReportDetails(e.target.value)}
+                placeholder="Tell us what's wrong with this listing..."
+              />
+            </FormField>
+          </>
         )}
       </Modal>
     </div>

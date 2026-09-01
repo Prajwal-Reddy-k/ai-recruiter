@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Search, UserRound } from "lucide-react";
+import { Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, UserRound } from "lucide-react";
 import { getCandidateDashboard } from "../api/dashboard";
+import { acceptInvitation, declineInvitation, dismissInvitation, getMyInvitations } from "../api/invitations";
 import { useAuth } from "../context/AuthContext";
-import type { CandidateDashboard, JobPosting } from "../types";
+import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../utils/errors";
+import type { CandidateDashboard, Invitation, JobPosting } from "../types";
 import { toIST } from "../utils/format";
 import Card from "../components/ui/Card";
 import StatCard from "../components/ui/StatCard";
@@ -27,16 +29,50 @@ function JobRow({ job }: { job: JobPosting }) {
 
 export default function CandidateDashboardPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [dashboard, setDashboard] = useState<CandidateDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [invitations, setInvitations] = useState<Invitation[]>([]);
 
   useEffect(() => {
     getCandidateDashboard()
       .then(setDashboard)
       .catch((err) => setError(getErrorMessage(err, "Failed to load your dashboard")))
       .finally(() => setLoading(false));
+    getMyInvitations()
+      .then((all) => setInvitations(all.filter((i) => i.status === "Sent" || i.status === "Viewed")))
+      .catch(() => setInvitations([]));
   }, []);
+
+  async function handleAccept(id: number) {
+    try {
+      await acceptInvitation(id);
+      setInvitations((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Invitation accepted.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to accept invitation"));
+    }
+  }
+
+  async function handleDecline(id: number) {
+    try {
+      await declineInvitation(id);
+      setInvitations((prev) => prev.filter((i) => i.id !== id));
+      toast.success("Invitation declined.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to decline invitation"));
+    }
+  }
+
+  async function handleDismiss(id: number) {
+    try {
+      await dismissInvitation(id);
+      setInvitations((prev) => prev.filter((i) => i.id !== id));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to dismiss invitation"));
+    }
+  }
 
   if (loading) return <p>Loading...</p>;
   if (error || !dashboard) return <p className="error">{error ?? "Dashboard unavailable."}</p>;
@@ -82,6 +118,29 @@ export default function CandidateDashboardPage() {
           <SectionHeader title="New matches for your alerts" action={<Link to="/alerts">Manage alerts →</Link>} as="h3" />
           <ul className="job-list-compact">
             {dashboard.alertMatches.map((job) => <JobRow key={job.id} job={job} />)}
+          </ul>
+        </Card>
+      )}
+
+      {invitations.length > 0 && (
+        <Card>
+          <SectionHeader title="Invitations to apply" as="h3" />
+          <ul className="job-list-compact">
+            {invitations.map((inv) => (
+              <li key={inv.id} className="job-card job-card-compact">
+                <Link to={`/jobs/${inv.jobPostingId}`}>
+                  <h4><Mail size={16} style={{ verticalAlign: "-3px", marginRight: "0.3rem" }} />{inv.jobTitle}</h4>
+                </Link>
+                <p>{inv.companyName} · invited by {inv.invitedByName}</p>
+                {inv.message && <p className="hint">"{inv.message}"</p>}
+                <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.5rem" }}>
+                  <Link to={`/jobs/${inv.jobPostingId}`} className="btn btn-primary btn-sm">View job</Link>
+                  <button type="button" className="link-button" onClick={() => handleAccept(inv.id)}>Accept</button>
+                  <button type="button" className="link-button" onClick={() => handleDecline(inv.id)}>Decline</button>
+                  <button type="button" className="link-button" onClick={() => handleDismiss(inv.id)}>Dismiss</button>
+                </div>
+              </li>
+            ))}
           </ul>
         </Card>
       )}

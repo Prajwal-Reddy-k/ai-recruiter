@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>You're offline — AI Recruiter</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #f6f7f9;
+        color: #1f2430;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+        text-align: center;
+        padding: 24px;
+      }
+      .offline-box { max-width: 360px; }
+      h1 { font-size: 1.25rem; margin-bottom: 8px; }
+      p { color: #5b6472; line-height: 1.5; }
+      button {
+        margin-top: 16px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        background: #059669;
+        color: #fff;
+        font-size: 0.95rem;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="offline-box">
+      <h1>You're offline</h1>
+      <p>AI Recruiter needs an internet connection to load this page. Check your connection and try again.</p>
+      <button onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>

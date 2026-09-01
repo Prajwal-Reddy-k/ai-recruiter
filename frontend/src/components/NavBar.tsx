@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LayoutDashboard, LogOut, Menu, User, X } from "lucide-react";
+import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, MessageSquare, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getExternalJobsAvailability } from "../api/externalJobs";
 import { getMyNotifications, getUnreadCount, markNotificationRead } from "../api/notifications";
+import { getUnreadMessageCount } from "../api/messages";
 import type { AppNotification } from "../types";
 import { resolveAvatarUrl } from "../utils/format";
 import Avatar from "./ui/Avatar";
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
 
 export default function NavBar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -17,8 +22,25 @@ export default function NavBar() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleBeforeInstallPrompt(e: Event) {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    }
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+  }, []);
+
+  async function handleInstallClick() {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    setInstallPrompt(null);
+  }
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -28,8 +50,13 @@ export default function NavBar() {
       getUnreadCount()
         .then(setUnreadCount)
         .catch(() => setUnreadCount(0));
+      if (user?.role === "Candidate" || user?.role === "Recruiter") {
+        getUnreadMessageCount()
+          .then(setUnreadMessages)
+          .catch(() => setUnreadMessages(0));
+      }
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.role]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -89,7 +116,11 @@ export default function NavBar() {
         <Link to="/post-job" onClick={() => setMobileOpen(false)}>Post a Job</Link>
         <Link to="/recruiter/candidates" onClick={() => setMobileOpen(false)}>Candidates</Link>
         <Link to="/recruiter/interviews" onClick={() => setMobileOpen(false)}>Interviews</Link>
+        <Link to="/recruiter/templates" onClick={() => setMobileOpen(false)}>Templates</Link>
+        <Link to="/recruiter/messages" onClick={() => setMobileOpen(false)}>Messages</Link>
+        <Link to="/recruiter/team" onClick={() => setMobileOpen(false)}>Team</Link>
         <Link to="/recruiter/analytics" onClick={() => setMobileOpen(false)}>Analytics</Link>
+        <Link to="/recruiter/reports" onClick={() => setMobileOpen(false)}>Reports</Link>
       </>
     ) : user?.role === "Candidate" ? (
       <>
@@ -97,6 +128,7 @@ export default function NavBar() {
         <Link to="/profile" onClick={() => setMobileOpen(false)}>My Profile</Link>
         <Link to="/applications" onClick={() => setMobileOpen(false)}>My Applications</Link>
         <Link to="/interviews" onClick={() => setMobileOpen(false)}>Interviews</Link>
+        <Link to="/messages" onClick={() => setMobileOpen(false)}>Messages</Link>
         <Link to="/saved-jobs" onClick={() => setMobileOpen(false)}>Saved Jobs</Link>
         <Link to="/alerts" onClick={() => setMobileOpen(false)}>Job Alerts</Link>
       </>
@@ -120,6 +152,17 @@ export default function NavBar() {
         <div className="navbar-actions">
           {isAuthenticated ? (
             <>
+              {(user?.role === "Candidate" || user?.role === "Recruiter") && (
+                <Link
+                  to={user.role === "Recruiter" ? "/recruiter/messages" : "/messages"}
+                  className="icon-btn"
+                  aria-label={`Messages${unreadMessages > 0 ? ` (${unreadMessages} unread)` : ""}`}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  <MessageSquare size={19} />
+                  {unreadMessages > 0 && <span className="notif-badge">{unreadMessages > 9 ? "9+" : unreadMessages}</span>}
+                </Link>
+              )}
               <div className="user-menu" ref={notifRef}>
                 <button
                   type="button"
@@ -186,6 +229,18 @@ export default function NavBar() {
               <Link to="/login" className="btn btn-ghost btn-sm">Login</Link>
               <Link to="/register" className="btn btn-primary btn-sm">Register</Link>
             </div>
+          )}
+
+          {installPrompt && (
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Install AI Recruiter"
+              title="Install AI Recruiter"
+              onClick={handleInstallClick}
+            >
+              <Download size={19} />
+            </button>
           )}
 
           <button

@@ -59,7 +59,7 @@ public class JobPostingService : IJobPostingService
         return jobs;
     }
 
-    public async Task<JobPostingDto?> GetByIdAsync(int id, string? viewerKey, int? viewerUserId, CancellationToken ct = default)
+    public async Task<JobPostingDto?> GetByIdAsync(int id, string? viewerKey, int? viewerUserId, bool isAdminViewer = false, CancellationToken ct = default)
     {
         var job = await _db.JobPostings
             .Include(j => j.Company)
@@ -71,10 +71,19 @@ public class JobPostingService : IJobPostingService
             return null;
         }
 
+        var isOwner = viewerUserId.HasValue && job.RecruiterProfile.UserId == viewerUserId.Value;
+
+        // Hidden/Removed jobs are only visible to their own recruiter or an Admin —
+        // otherwise this endpoint previously leaked moderated-out listings to anyone with
+        // the direct URL.
+        if (job.ModerationStatus != ModerationStatus.Approved && !isOwner && !isAdminViewer)
+        {
+            return null;
+        }
+
         // Only count views on published jobs, never count the owning recruiter previewing
         // their own listing, and de-duplicate repeat hits from the same visitor within a
         // short window so a page refresh can't inflate the count.
-        var isOwner = viewerUserId.HasValue && job.RecruiterProfile.UserId == viewerUserId.Value;
         if (job.Status == JobStatus.Open && !isOwner && (viewerKey is null || _viewDedup.ShouldCountView(viewerKey, job.Id)))
         {
             job.ViewCount++;
@@ -147,7 +156,7 @@ public class JobPostingService : IJobPostingService
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
-        if (job.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, job.RecruiterProfile.UserId, job.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this job posting.");
         }
@@ -230,7 +239,7 @@ public class JobPostingService : IJobPostingService
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
-        if (job.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, job.RecruiterProfile.UserId, job.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this job posting.");
         }
@@ -274,7 +283,7 @@ public class JobPostingService : IJobPostingService
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
-        if (source.RecruiterProfile.UserId != recruiterUserId)
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, source.RecruiterProfile.UserId, source.CompanyId, ct))
         {
             throw new ForbiddenException("You do not have access to this job posting.");
         }
@@ -309,21 +318,33 @@ public class JobPostingService : IJobPostingService
         return ToDto(copy);
     }
 
-    public async Task ReportAsync(int userId, int jobId, string reason, CancellationToken ct = default)
+    public async Task<JobPostingDto> ExtendDeadlineAsync(int recruiterUserId, int jobId, DateTime? applicationDeadlineUtc, CancellationToken ct = default)
     {
-        var jobExists = await _db.JobPostings.AnyAsync(j => j.Id == jobId, ct);
-        if (!jobExists)
+        var job = await _db.JobPostings
+            .Include(j => j.Company)
+            .Include(j => j.RecruiterProfile)
+            .FirstOrDefaultAsync(j => j.Id == jobId, ct)
+            ?? throw new NotFoundException("Job posting not found.");
+
+        if (!await CompanyAccessHelper.IsOwningRecruiterOrCompanyOwnerAsync(_db, recruiterUserId, job.RecruiterProfile.UserId, job.CompanyId, ct))
         {
-            throw new NotFoundException("Job posting not found.");
+            throw new ForbiddenException("You do not have access to this job posting.");
         }
 
-        _db.JobReports.Add(new JobReport
+        if (applicationDeadlineUtc.HasValue && applicationDeadlineUtc.Value <= DateTime.UtcNow)
         {
-            JobPostingId = jobId,
-            ReportedByUserId = userId,
-            Reason = reason,
-        });
+            throw new ValidationException("The application deadline must be in the future.",
+                new Dictionary<string, string> { ["applicationDeadlineUtc"] = "Deadline must be in the future." });
+        }
+
+        job.ApplicationDeadlineUtc = applicationDeadlineUtc;
+        job.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(recruiterUserId, "Recruiter", "JobDeadlineChanged", "JobPosting", job.Id,
+            new { job.Title, ApplicationDeadlineUtc = applicationDeadlineUtc }, ct);
+
+        return ToDto(job);
     }
 
     private static JobPostingDto ToDto(JobPosting j) => JobPostingMapper.ToDto(j);

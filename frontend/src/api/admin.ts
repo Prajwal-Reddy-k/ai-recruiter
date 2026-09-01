@@ -1,5 +1,5 @@
 import apiClient from "./client";
-import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, JobReport } from "../types";
+import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, Report } from "../types";
 
 export type ModerationStatusValue = "Approved" | "Hidden" | "Removed";
 const moderationStatusToNumber: Record<ModerationStatusValue, number> = {
@@ -8,11 +8,12 @@ const moderationStatusToNumber: Record<ModerationStatusValue, number> = {
   Removed: 3,
 };
 
-export type ReportStatusValue = "Pending" | "Reviewed" | "Dismissed";
+export type ReportStatusValue = "Open" | "UnderReview" | "Resolved" | "Dismissed";
 const reportStatusToNumber: Record<ReportStatusValue, number> = {
-  Pending: 1,
-  Reviewed: 2,
-  Dismissed: 3,
+  Open: 1,
+  UnderReview: 2,
+  Resolved: 3,
+  Dismissed: 4,
 };
 
 export async function getAdminUsers(): Promise<AdminUser[]> {
@@ -30,8 +31,8 @@ export async function getAdminJobs(): Promise<AdminJob[]> {
   return data;
 }
 
-export async function getAdminReports(): Promise<JobReport[]> {
-  const { data } = await apiClient.get<JobReport[]>("/admin/reports");
+export async function getAdminReports(): Promise<Report[]> {
+  const { data } = await apiClient.get<Report[]>("/admin/reports");
   return data;
 }
 
@@ -42,11 +43,23 @@ export async function moderateJob(jobId: number, status: ModerationStatusValue):
   return data;
 }
 
-export async function resolveReport(reportId: number, status: ReportStatusValue, resolutionNote?: string): Promise<void> {
-  await apiClient.post(`/admin/reports/${reportId}/resolve`, {
+export async function setReportStatus(reportId: number, status: ReportStatusValue, note?: string): Promise<void> {
+  await apiClient.post(`/admin/reports/${reportId}/status`, {
     status: reportStatusToNumber[status],
-    resolutionNote,
+    note,
   });
+}
+
+export async function addReportNote(reportId: number, note: string): Promise<void> {
+  await apiClient.post(`/admin/reports/${reportId}/note`, { note });
+}
+
+export async function suspendUser(userId: number): Promise<void> {
+  await apiClient.post(`/admin/users/${userId}/suspend`);
+}
+
+export async function reactivateUser(userId: number): Promise<void> {
+  await apiClient.post(`/admin/users/${userId}/reactivate`);
 }
 
 export async function getAuditLog(): Promise<AuditLogEntry[]> {

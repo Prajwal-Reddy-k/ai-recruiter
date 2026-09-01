@@ -27,5 +27,6 @@ public static class JobPostingMapper
         j.Company.LogoUrl,
         j.CreatedAt,
         j.ViewCount,
-        j.PublishedAt);
+        j.PublishedAt,
+        j.ApplicationDeadlineUtc);
 }

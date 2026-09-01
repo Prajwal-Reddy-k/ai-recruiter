@@ -2,7 +2,8 @@ namespace AIRecruiter.Domain.Enums;
 
 public enum ReportStatus
 {
-    Pending = 1,
-    Reviewed = 2,
-    Dismissed = 3
+    Open = 1,
+    UnderReview = 2,
+    Resolved = 3,
+    Dismissed = 4
 }

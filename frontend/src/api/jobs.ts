@@ -1,5 +1,6 @@
 import apiClient from "./client";
 import type { CreateJobPostingRequest, JobPosting, RecruiterJobSummary, UpdateJobPostingRequest } from "../types";
+import { type ReportReasonValue, reportReasonToNumber } from "./moderationReports";
 
 export type JobTypeValue = "FullTime" | "PartTime" | "Contract" | "Internship" | "Freelance";
 
@@ -70,6 +71,11 @@ export async function duplicateJob(jobId: number): Promise<JobPosting> {
   return data;
 }
 
-export async function reportJob(jobId: number, reason: string): Promise<void> {
-  await apiClient.post(`/jobs/${jobId}/report`, { reason });
+export async function reportJob(jobId: number, reason: ReportReasonValue, details?: string): Promise<void> {
+  await apiClient.post(`/jobs/${jobId}/report`, { reason: reportReasonToNumber[reason], details });
+}
+
+export async function extendJobDeadline(jobId: number, applicationDeadlineUtc: string | null): Promise<JobPosting> {
+  const { data } = await apiClient.patch<JobPosting>(`/jobs/${jobId}/deadline`, { applicationDeadlineUtc });
+  return data;
 }

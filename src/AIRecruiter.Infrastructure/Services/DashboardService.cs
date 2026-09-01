@@ -57,11 +57,14 @@ public class DashboardService : IDashboardService
             .Select(SkillTaxonomy.Normalize)
             .ToHashSet();
 
-        var recommended = candidateSkills.Count == 0
+        var preferredJobTypes = SkillTaxonomy.ParseCsv(profile.PreferredJobTypesCsv).Select(SkillTaxonomy.Normalize).ToHashSet();
+        var preferredLocations = SkillTaxonomy.ParseCsv(profile.PreferredLocationsCsv).Select(SkillTaxonomy.Normalize).ToHashSet();
+        var hasPreferences = preferredJobTypes.Count > 0 || preferredLocations.Count > 0 || profile.RemotePreference.HasValue;
+
+        var recommended = candidateSkills.Count == 0 && !hasPreferences
             ? openJobs.Take(3).ToList()
             : openJobs
-                .Select(j => (Job: j, Score: SkillTaxonomy.ParseCsv(j.RequiredSkillsCsv)
-                    .Count(s => candidateSkills.Contains(SkillTaxonomy.Normalize(s)))))
+                .Select(j => (Job: j, Score: ScoreJobForCandidate(j, candidateSkills, preferredJobTypes, preferredLocations, profile.RemotePreference)))
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => x.Job.CreatedAt)
                 .Take(3)
@@ -99,6 +102,35 @@ public class DashboardService : IDashboardService
             alertCount,
             alertMatches,
             upcomingInterviews);
+    }
+
+    /// <summary>Skill-overlap count (the original, still-dominant scoring signal) plus a
+    /// small additive bonus for matching the candidate's stated preferences — a location or
+    /// remote-preference match, and a job-type match. Never overrides skill relevance, just
+    /// tie-breaks toward jobs that also fit how/where the candidate wants to work.</summary>
+    private static int ScoreJobForCandidate(
+        JobPosting job, HashSet<string> candidateSkills, HashSet<string> preferredJobTypes,
+        HashSet<string> preferredLocations, bool? remotePreference)
+    {
+        var score = SkillTaxonomy.ParseCsv(job.RequiredSkillsCsv).Count(s => candidateSkills.Contains(SkillTaxonomy.Normalize(s)));
+
+        if (remotePreference == true && job.IsRemote)
+        {
+            score += 1;
+        }
+        else if (preferredLocations.Count > 0 &&
+            ((job.City is not null && preferredLocations.Contains(SkillTaxonomy.Normalize(job.City))) ||
+             (job.State is not null && preferredLocations.Contains(SkillTaxonomy.Normalize(job.State)))))
+        {
+            score += 1;
+        }
+
+        if (preferredJobTypes.Contains(SkillTaxonomy.Normalize(job.JobType.ToString())))
+        {
+            score += 1;
+        }
+
+        return score;
     }
 
     public async Task<RecruiterDashboardDto> GetRecruiterDashboardAsync(int userId, CancellationToken ct = default)
