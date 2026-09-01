@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FocusEvent, type FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { FileText, UploadCloud } from "lucide-react";
 import { getMyCandidateProfile, upsertMyCandidateProfile, uploadResume, downloadMyResume } from "../api/candidates";
 import type { CandidateProfile } from "../types";
@@ -650,6 +651,14 @@ export default function CandidateProfilePage() {
         {uploadState === "error" && <p className="error" style={{ marginTop: "0.75rem" }}>{uploadError}</p>}
 
         <p className="hint" style={{ marginTop: "0.75rem" }}>PDF or DOCX, up to 5 MB. Uploading a new file replaces your current resume.</p>
+      </Card>
+
+      <Card className="ui-card-padded">
+        <h2><FileText size={18} /> Build your resume</h2>
+        <p className="hint" style={{ marginBottom: "0.75rem" }}>
+          Create a structured, downloadable resume from your profile — separate from the uploaded file above.
+        </p>
+        <Link to="/resume-builder" className="btn btn-secondary btn-sm">Open Resume Builder</Link>
       </Card>
     </div>
   );

@@ -56,7 +56,16 @@ public class CandidateProfile : BaseEntity
     /// hidden by the migration that adds this column.</summary>
     public ProfileVisibility ProfileVisibility { get; set; } = ProfileVisibility.VisibleAfterApplying;
 
+    /// <summary>Newline-delimited free-text bullet points for the resume builder — short
+    /// items without dates or reordering needs, so a delimited-text field (matching the
+    /// existing SkillsCsv convention) is used instead of a fifth child table.</summary>
+    public string? AchievementsText { get; set; }
+
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<SavedJob> SavedJobs { get; set; } = new List<SavedJob>();
     public ICollection<JobAlert> JobAlerts { get; set; } = new List<JobAlert>();
+    public ICollection<CandidateWorkExperience> WorkExperiences { get; set; } = new List<CandidateWorkExperience>();
+    public ICollection<CandidateEducation> ResumeEducations { get; set; } = new List<CandidateEducation>();
+    public ICollection<CandidateCertification> Certifications { get; set; } = new List<CandidateCertification>();
+    public ICollection<CandidateProject> Projects { get; set; } = new List<CandidateProject>();
 }

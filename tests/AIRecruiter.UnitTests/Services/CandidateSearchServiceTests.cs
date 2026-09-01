@@ -235,4 +235,46 @@ public class CandidateSearchServiceTests
         Assert.Single(results);
         Assert.Equal("Active Ana", results[0].FullName);
     }
+
+    [Fact]
+    public async Task GetDetailAsync_IncludesResumeBuilderSectionsForApplicant()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, candidate, _) = await SeedAsync(db);
+        db.CandidateWorkExperiences.Add(new CandidateWorkExperience { CandidateProfileId = candidate.Id, Title = "Engineer", Company = "Acme", StartDate = DateTime.UtcNow.AddYears(-2) });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var detail = await sut.GetDetailAsync(recruiterA.Id, candidate.Id);
+
+        Assert.Single(detail.WorkExperiences!);
+    }
+
+    [Fact]
+    public async Task GetDetailAsync_DifferentCompanyRecruiter_CannotSeeResumeSections()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, recruiterB, candidate, _) = await SeedAsync(db);
+        db.CandidateWorkExperiences.Add(new CandidateWorkExperience { CandidateProfileId = candidate.Id, Title = "Engineer", Company = "Acme", StartDate = DateTime.UtcNow.AddYears(-2) });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => sut.GetDetailAsync(recruiterB.Id, candidate.Id));
+    }
+
+    [Fact]
+    public async Task GetDiscoverableCandidatesAsync_PrivateCandidate_NeverAppears()
+    {
+        using var db = TestDbContextFactory.Create();
+        var privateUser = new User { FullName = "Private Pat", Email = "pat@example.com", Role = UserRole.Candidate };
+        db.Users.Add(privateUser);
+        await db.SaveChangesAsync();
+        db.CandidateProfiles.Add(new CandidateProfile { UserId = privateUser.Id, ProfileVisibility = ProfileVisibility.Private });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var results = await sut.GetDiscoverableCandidatesAsync(new DiscoverCandidatesQuery(null, null, null, null, null));
+
+        Assert.Empty(results);
+    }
 }

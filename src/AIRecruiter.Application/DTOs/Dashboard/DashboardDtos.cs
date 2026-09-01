@@ -12,6 +12,8 @@ public record ApplicationStatusSummaryDto(int Applied, int UnderReview, int Shor
 /// domain) as sample data rather than presenting it as real.</summary>
 public record DemoJobsSectionDto(IReadOnlyList<JobPostingDto> Items, bool IsSampleData);
 
+public record NextBestActionDto(string Label, string Description, string LinkPath);
+
 public record CandidateDashboardDto(
     int ProfileCompletionPercent,
     ApplicationStatusSummaryDto ApplicationSummary,
@@ -22,7 +24,8 @@ public record CandidateDashboardDto(
     IReadOnlyList<JobPostingDto> SavedJobs,
     int ActiveAlertCount,
     IReadOnlyList<JobPostingDto> AlertMatches,
-    IReadOnlyList<UpcomingInterviewDto> UpcomingInterviews);
+    IReadOnlyList<UpcomingInterviewDto> UpcomingInterviews,
+    IReadOnlyList<NextBestActionDto> NextBestActions);
 
 public record JobPerformanceDto(
     int JobId,

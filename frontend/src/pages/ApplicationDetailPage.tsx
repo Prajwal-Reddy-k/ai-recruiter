@@ -22,16 +22,17 @@ import type { Interview, JobApplicationDetail } from "../types";
 import { saveBlobAsFile } from "../utils/download";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { getErrorMessage } from "../utils/errors";
+import { getErrorCode, getErrorMessage } from "../utils/errors";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
-import Modal from "../components/ui/Modal";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import FormField from "../components/ui/FormField";
 import { StatusBadge } from "../components/ui/Badge";
 import InterviewCard from "../components/InterviewCard";
 import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
 import MessageThread from "../components/MessageThread";
 import FeedbackSummary from "../components/FeedbackSummary";
+import ApplicationTimeline from "../components/ApplicationTimeline";
 
 const TERMINAL_STATUSES = new Set(["Withdrawn", "Rejected", "Hired"]);
 
@@ -96,7 +97,11 @@ export default function ApplicationDetailPage() {
       setApplication({ ...application, status: updated.status, updatedAt: updated.updatedAt });
       toast.success("Application withdrawn.");
     } catch (err) {
-      setActionError(getErrorMessage(err, "Failed to withdraw application"));
+      if (getErrorCode(err) === "APPLICATION_FINAL") {
+        setActionError("This application has already reached a final status and can no longer be withdrawn.");
+      } else {
+        setActionError(getErrorMessage(err, "Failed to withdraw application"));
+      }
     } finally {
       setActionLoading(false);
     }
@@ -209,6 +214,12 @@ export default function ApplicationDetailPage() {
           <span className="job-detail-fact">Applied {new Date(application.createdAt).toLocaleDateString()}</span>
         </div>
 
+        {application.nextAction && (
+          <p className="hint" style={{ marginBottom: "1rem" }}>
+            <strong>Next:</strong> {application.nextAction}
+          </p>
+        )}
+
         {application.coverNote && (
           <>
             <h3 style={{ marginBottom: "0.5rem" }}>Cover note</h3>
@@ -290,19 +301,8 @@ export default function ApplicationDetailPage() {
 
         {application.statusHistory.length > 0 && (
           <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>
-            <h3 style={{ marginBottom: "0.75rem" }}>Status timeline</h3>
-            <ul className="status-timeline">
-              {application.statusHistory.map((entry, i) => (
-                <li key={i} className="status-timeline-entry">
-                  <p>
-                    {entry.fromStatus ? `${entry.fromStatus} → ${entry.toStatus}` : entry.toStatus}
-                    {" "}<span className="hint">by {entry.changedByName}</span>
-                  </p>
-                  <p className="hint">{new Date(entry.changedAt).toLocaleString()}</p>
-                  {entry.note && <p style={{ marginTop: "0.25rem" }}>{entry.note}</p>}
-                </li>
-              ))}
-            </ul>
+            <h3 style={{ marginBottom: "0.75rem" }}>Application timeline</h3>
+            <ApplicationTimeline entries={application.statusHistory} />
           </Card>
         )}
 
@@ -377,19 +377,17 @@ export default function ApplicationDetailPage() {
         </Card>
       </div>
 
-      <Modal
+      <ConfirmDialog
         open={confirmWithdraw}
-        onClose={() => setConfirmWithdraw(false)}
         title="Withdraw application"
-        footer={
-          <>
-            <Button variant="secondary" onClick={() => setConfirmWithdraw(false)}>Cancel</Button>
-            <Button variant="danger" onClick={handleWithdraw}>Withdraw</Button>
-          </>
-        }
+        confirmLabel="Withdraw"
+        danger
+        loading={actionLoading}
+        onConfirm={handleWithdraw}
+        onCancel={() => setConfirmWithdraw(false)}
       >
         Withdraw your application for "{application.jobTitle}"? This can't be undone.
-      </Modal>
+      </ConfirmDialog>
 
       <ScheduleInterviewModal
         open={scheduleOpen}

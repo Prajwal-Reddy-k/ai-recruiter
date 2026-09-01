@@ -9,6 +9,8 @@ import { useToast } from "../context/ToastContext";
 import { StatusBadge } from "../components/ui/Badge";
 import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
+import Avatar from "../components/ui/Avatar";
+import { resolveAvatarUrl } from "../utils/format";
 import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
 
 const RECRUITER_SELECTABLE_STATUSES: ApplicationStatusValue[] = [
@@ -83,7 +85,8 @@ export default function RecruiterApplicantsPage() {
         <ul className="job-list">
           {applications.map((app) => (
             <li key={app.id} className="job-card">
-              <Link to={`/applications/${app.id}`} className="job-card-title">
+              <Link to={`/applications/${app.id}`} className="job-card-title" style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+                <Avatar name={app.candidateFullName ?? "?"} size={32} src={resolveAvatarUrl(app.candidateAvatarUrl)} />
                 {app.candidateFullName ?? `Application #${app.id}`}
               </Link>
               <p className="job-card-meta">

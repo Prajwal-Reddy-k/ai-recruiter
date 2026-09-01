@@ -1,7 +1,9 @@
 using AIRecruiter.Application.DTOs.Applications;
+using AIRecruiter.Application.DTOs.Candidates;
 using AIRecruiter.Application.DTOs.Dashboard;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Application.Matching;
+using AIRecruiter.Application.Validation;
 using AIRecruiter.Domain.Entities;
 using AIRecruiter.Domain.Enums;
 using AIRecruiter.Infrastructure.Mapping;
@@ -29,7 +31,10 @@ public class DashboardService : IDashboardService
 
     public async Task<CandidateDashboardDto> GetCandidateDashboardAsync(int userId, CancellationToken ct = default)
     {
-        var profile = await _db.CandidateProfiles.FirstOrDefaultAsync(c => c.UserId == userId, ct)
+        var profile = await _db.CandidateProfiles
+            .Include(c => c.WorkExperiences)
+            .Include(c => c.ResumeEducations)
+            .FirstOrDefaultAsync(c => c.UserId == userId, ct)
             ?? throw new Application.Exceptions.NotFoundException("Candidate profile not found.");
 
         var applications = await _db.JobApplications
@@ -59,12 +64,13 @@ public class DashboardService : IDashboardService
 
         var preferredJobTypes = SkillTaxonomy.ParseCsv(profile.PreferredJobTypesCsv).Select(SkillTaxonomy.Normalize).ToHashSet();
         var preferredLocations = SkillTaxonomy.ParseCsv(profile.PreferredLocationsCsv).Select(SkillTaxonomy.Normalize).ToHashSet();
-        var hasPreferences = preferredJobTypes.Count > 0 || preferredLocations.Count > 0 || profile.RemotePreference.HasValue;
+        var preferredRoles = SkillTaxonomy.ParseCsv(profile.PreferredRolesCsv).Select(SkillTaxonomy.Normalize).ToHashSet();
+        var hasPreferences = preferredJobTypes.Count > 0 || preferredLocations.Count > 0 || preferredRoles.Count > 0 || profile.RemotePreference.HasValue;
 
         var recommended = candidateSkills.Count == 0 && !hasPreferences
             ? openJobs.Take(3).ToList()
             : openJobs
-                .Select(j => (Job: j, Score: ScoreJobForCandidate(j, candidateSkills, preferredJobTypes, preferredLocations, profile.RemotePreference)))
+                .Select(j => (Job: j, Score: ScoreJobForCandidate(j, candidateSkills, preferredJobTypes, preferredLocations, preferredRoles, profile.RemotePreference)))
                 .OrderByDescending(x => x.Score)
                 .ThenByDescending(x => x.Job.CreatedAt)
                 .Take(3)
@@ -90,9 +96,14 @@ public class DashboardService : IDashboardService
         var alertCount = await _db.JobAlerts.CountAsync(a => a.CandidateProfile.UserId == userId, ct);
         var alertMatches = await _jobAlertService.GetMatchingJobsAsync(userId, 6, ct);
         var upcomingInterviews = await _interviewService.GetUpcomingAsync(userId, "Candidate", ct);
+        var pendingInvitationCount = await _db.Invitations.CountAsync(
+            i => i.CandidateProfileId == profile.Id && (i.Status == InvitationStatus.Sent || i.Status == InvitationStatus.Viewed), ct);
+
+        var strength = ProfileStrengthCalculator.Calculate(BuildStrengthInput(profile));
+        var nextBestActions = BuildNextBestActions(strength, recommended.Count > 0, upcomingInterviews, pendingInvitationCount);
 
         return new CandidateDashboardDto(
-            CalculateProfileCompletion(profile),
+            strength.Score,
             summary,
             recentApplications,
             recommended.Select(JobPostingMapper.ToDto).ToList(),
@@ -101,16 +112,18 @@ public class DashboardService : IDashboardService
             savedJobs,
             alertCount,
             alertMatches,
-            upcomingInterviews);
+            upcomingInterviews,
+            nextBestActions);
     }
 
     /// <summary>Skill-overlap count (the original, still-dominant scoring signal) plus a
     /// small additive bonus for matching the candidate's stated preferences — a location or
-    /// remote-preference match, and a job-type match. Never overrides skill relevance, just
-    /// tie-breaks toward jobs that also fit how/where the candidate wants to work.</summary>
+    /// remote-preference match, a job-type match, and a preferred-role title match. Never
+    /// overrides skill relevance, just tie-breaks toward jobs that also fit how/where/what
+    /// role the candidate wants.</summary>
     private static int ScoreJobForCandidate(
         JobPosting job, HashSet<string> candidateSkills, HashSet<string> preferredJobTypes,
-        HashSet<string> preferredLocations, bool? remotePreference)
+        HashSet<string> preferredLocations, HashSet<string> preferredRoles, bool? remotePreference)
     {
         var score = SkillTaxonomy.ParseCsv(job.RequiredSkillsCsv).Count(s => candidateSkills.Contains(SkillTaxonomy.Normalize(s)));
 
@@ -130,7 +143,68 @@ public class DashboardService : IDashboardService
             score += 1;
         }
 
+        if (preferredRoles.Count > 0)
+        {
+            var normalizedTitle = SkillTaxonomy.Normalize(job.Title);
+            if (preferredRoles.Any(r => normalizedTitle.Contains(r) || r.Contains(normalizedTitle)))
+            {
+                score += 1;
+            }
+        }
+
         return score;
+    }
+
+    private static ProfileStrengthInput BuildStrengthInput(CandidateProfile p) => new(
+        HasHeadline: !string.IsNullOrWhiteSpace(p.Headline),
+        HasSummary: !string.IsNullOrWhiteSpace(p.Summary),
+        HasSkills: SkillTaxonomy.ParseCsv(p.SkillsCsv).Count >= 3,
+        HasAvatar: !string.IsNullOrEmpty(p.AvatarStorageKey),
+        HasResumeFile: !string.IsNullOrEmpty(p.ResumeStorageKey),
+        HasWorkExperience: p.WorkExperiences.Count > 0,
+        HasEducation: p.ResumeEducations.Count > 0 || !string.IsNullOrWhiteSpace(p.Education),
+        HasLinks: !string.IsNullOrWhiteSpace(p.LinkedInUrl) || !string.IsNullOrWhiteSpace(p.GithubUrl) || !string.IsNullOrWhiteSpace(p.PortfolioUrl),
+        HasPreferences: p.RemotePreference.HasValue || !string.IsNullOrWhiteSpace(p.PreferredJobTypesCsv) || !string.IsNullOrWhiteSpace(p.PreferredLocationsCsv));
+
+    /// <summary>Capped, priority-ordered list derived entirely from data already gathered in
+    /// GetCandidateDashboardAsync — no extra queries beyond the one cheap invitation count.</summary>
+    private static List<NextBestActionDto> BuildNextBestActions(
+        ProfileStrengthResult strength, bool hasRecommendedJobs,
+        IReadOnlyList<Application.DTOs.Interviews.UpcomingInterviewDto> upcomingInterviews, int pendingInvitationCount)
+    {
+        var actions = new List<NextBestActionDto>();
+
+        if (strength.Score < 100 && strength.MissingItems.Count > 0)
+        {
+            var top = strength.MissingItems[0];
+            actions.Add(new NextBestActionDto(top.Label, top.Tip, top.LinkPath));
+        }
+
+        if (pendingInvitationCount > 0)
+        {
+            actions.Add(new NextBestActionDto(
+                "Review recruiter invitation",
+                $"You have {pendingInvitationCount} pending invitation{(pendingInvitationCount == 1 ? "" : "s")} to apply.",
+                "/candidate/dashboard"));
+        }
+
+        if (upcomingInterviews.Count > 0)
+        {
+            actions.Add(new NextBestActionDto(
+                "Respond to your interview",
+                "You have an upcoming interview — confirm the details.",
+                "/interviews"));
+        }
+
+        if (hasRecommendedJobs)
+        {
+            actions.Add(new NextBestActionDto(
+                "Apply to recommended jobs",
+                "We've found open roles that match your skills and preferences.",
+                "/jobs"));
+        }
+
+        return actions.Take(4).ToList();
     }
 
     public async Task<RecruiterDashboardDto> GetRecruiterDashboardAsync(int userId, CancellationToken ct = default)
@@ -178,24 +252,6 @@ public class DashboardService : IDashboardService
             recentApplications.Select(ToApplicationDto).ToList(),
             jobPerformance,
             upcomingInterviews);
-    }
-
-    private static int CalculateProfileCompletion(CandidateProfile p)
-    {
-        var fields = new[]
-        {
-            !string.IsNullOrWhiteSpace(p.Headline),
-            !string.IsNullOrWhiteSpace(p.Summary),
-            !string.IsNullOrWhiteSpace(p.Education),
-            !string.IsNullOrWhiteSpace(p.ExperienceSummary),
-            p.TotalExperienceYears.HasValue,
-            !string.IsNullOrWhiteSpace(p.City),
-            !string.IsNullOrWhiteSpace(p.SkillsCsv),
-            !string.IsNullOrEmpty(p.ResumeStorageKey),
-        };
-
-        var filled = fields.Count(f => f);
-        return (int)Math.Round(filled / (double)fields.Length * 100);
     }
 
     private static JobApplicationDto ToApplicationDto(JobApplication a) => new(

@@ -24,6 +24,8 @@ import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
 import PageHeader from "../components/ui/PageHeader";
+import Avatar from "../components/ui/Avatar";
+import { resolveAvatarUrl } from "../utils/format";
 
 const STATUS_OPTIONS: ApplicationStatusValue[] = [
   "Applied", "Screening", "Shortlisted", "InterviewScheduled", "InterviewCompleted", "Offer", "Hired", "Rejected", "Withdrawn",
@@ -240,7 +242,10 @@ export default function CandidateSearchPage() {
                 <tbody>
                   {discoverResults.map((c) => (
                     <tr key={c.candidateProfileId}>
-                      <td>{c.fullName}</td>
+                      <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <Avatar name={c.fullName} size={28} src={resolveAvatarUrl(c.avatarUrl)} />
+                        {c.fullName}
+                      </td>
                       <td>{c.skillsCsv ?? "—"}</td>
                       <td>{c.displayLocation}</td>
                       <td>{c.totalExperienceYears != null ? `${c.totalExperienceYears} yrs` : "—"}</td>
@@ -345,7 +350,10 @@ export default function CandidateSearchPage() {
             <tbody>
               {results.map((r) => (
                 <tr key={r.applicationId} style={{ cursor: "pointer" }} onClick={() => openDetail(r.candidateProfileId)}>
-                  <td>{r.fullName}</td>
+                  <td style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    <Avatar name={r.fullName} size={28} src={resolveAvatarUrl(r.avatarUrl)} />
+                    {r.fullName}
+                  </td>
                   <td>{r.skillsCsv ?? "—"}</td>
                   <td>{r.city ? `${r.city}${r.state ? `, ${r.state}` : ""}` : "—"}</td>
                   <td>{r.totalExperienceYears != null ? `${r.totalExperienceYears} yrs` : "—"}</td>
@@ -371,6 +379,9 @@ export default function CandidateSearchPage() {
         {detailError && <p className="error">{detailError}</p>}
         {detail && (
           <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+              <Avatar name={detail.fullName} size={48} src={resolveAvatarUrl(detail.avatarUrl)} />
+            </div>
             {detail.headline && <p className="hint">{detail.headline}</p>}
             <p style={{ marginTop: "0.5rem" }}>{detail.displayLocation} {detail.totalExperienceYears != null && `· ${detail.totalExperienceYears} yrs experience`}</p>
             {detail.summary && <p style={{ marginTop: "0.75rem" }}>{detail.summary}</p>}

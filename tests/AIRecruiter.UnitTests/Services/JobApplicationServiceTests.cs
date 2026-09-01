@@ -236,6 +236,40 @@ public class JobApplicationServiceTests
     }
 
     [Theory]
+    [InlineData(ApplicationStatus.Hired)]
+    [InlineData(ApplicationStatus.Rejected)]
+    [InlineData(ApplicationStatus.Withdrawn)]
+    public async Task WithdrawAsync_FinalStatus_ThrowsConflict(ApplicationStatus finalStatus)
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        var sut = CreateSut(db);
+        var application = await sut.ApplyAsync(candidate.Id, job.Id, null);
+        var entity = db.JobApplications.First(a => a.Id == application.Id);
+        entity.Status = finalStatus;
+        await db.SaveChangesAsync();
+
+        var ex = await Assert.ThrowsAsync<ConflictException>(() => sut.WithdrawAsync(candidate.Id, application.Id));
+        Assert.Equal("APPLICATION_FINAL", ex.ErrorCode);
+    }
+
+    [Fact]
+    public async Task WithdrawAsync_EarlyStatus_Succeeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        var sut = CreateSut(db);
+        var application = await sut.ApplyAsync(candidate.Id, job.Id, null);
+        var entity = db.JobApplications.First(a => a.Id == application.Id);
+        entity.Status = ApplicationStatus.Shortlisted;
+        await db.SaveChangesAsync();
+
+        var updated = await sut.WithdrawAsync(candidate.Id, application.Id);
+
+        Assert.Equal("Withdrawn", updated.Status);
+    }
+
+    [Theory]
     [InlineData(JobStatus.Closed)]
     [InlineData(JobStatus.Archived)]
     [InlineData(JobStatus.Draft)]

@@ -26,6 +26,13 @@ public class ImageSharpAvatarProcessor : IAvatarImageProcessor
     {
         using var image = await Image.LoadAsync(content, ct);
 
+        // Defense in depth: the frontend crop step already sends a square image, but a
+        // client that bypasses the UI (or calls the API directly) could send anything — crop
+        // to a centered square here so every stored avatar is square by construction.
+        var side = Math.Min(image.Width, image.Height);
+        var cropRect = new Rectangle((image.Width - side) / 2, (image.Height - side) / 2, side, side);
+        image.Mutate(x => x.Crop(cropRect));
+
         image.Mutate(x => x.Resize(new ResizeOptions
         {
             Mode = ResizeMode.Max,

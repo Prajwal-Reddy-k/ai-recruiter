@@ -1,3 +1,4 @@
+using AIRecruiter.Application.Common;
 using AIRecruiter.Application.DTOs.Applications;
 using AIRecruiter.Application.DTOs.Matching;
 using AIRecruiter.Application.Exceptions;
@@ -11,6 +12,12 @@ namespace AIRecruiter.Infrastructure.Services;
 
 public class JobApplicationService : IJobApplicationService
 {
+    /// <summary>Statuses a candidate can no longer withdraw from — mirrors the frontend's
+    /// existing TERMINAL_STATUSES set, but enforced here too since a UI-only check is not a
+    /// real authorization boundary.</summary>
+    private static readonly ApplicationStatus[] FinalStatuses =
+        { ApplicationStatus.Hired, ApplicationStatus.Rejected, ApplicationStatus.Withdrawn };
+
     private readonly AppDbContext _db;
     private readonly IResumeMatchingService _matchingService;
     private readonly CandidateProfileService _candidateProfileService;
@@ -137,7 +144,20 @@ public class JobApplicationService : IJobApplicationService
             .OrderByDescending(a => a.CreatedAt)
             .ToListAsync(ct);
 
-        return applications.Select(a => ToDto(a, a.JobPosting.Title, a.JobPosting.Company.Name)).ToList();
+        var applicationIds = applications.Select(a => a.Id).ToList();
+        var activeInterviewStatuses = new[] { InterviewStatus.Proposed, InterviewStatus.Scheduled };
+        var nextInterviewByApp = await _db.Interviews
+            .Where(i => applicationIds.Contains(i.JobApplicationId) && activeInterviewStatuses.Contains(i.Status))
+            .GroupBy(i => i.JobApplicationId)
+            .Select(g => new { JobApplicationId = g.Key, NextStart = g.Min(i => i.ScheduledStartUtc) })
+            .ToDictionaryAsync(x => x.JobApplicationId, x => (DateTime?)x.NextStart, ct);
+
+        return applications
+            .Select(a => ToDto(
+                a, a.JobPosting.Title, a.JobPosting.Company.Name,
+                jobLocation: IndiaLocationFormatter.Format(a.JobPosting.City, a.JobPosting.State, a.JobPosting.IsRemote),
+                nextInterviewAtUtc: nextInterviewByApp.GetValueOrDefault(a.Id)))
+            .ToList();
     }
 
     public async Task<JobApplicationDetailDto> GetApplicationDetailAsync(int userId, string role, int applicationId, CancellationToken ct = default)
@@ -242,6 +262,11 @@ public class JobApplicationService : IJobApplicationService
             throw new ForbiddenException("You do not have access to this application.");
         }
 
+        if (FinalStatuses.Contains(application.Status))
+        {
+            throw new ConflictException("APPLICATION_FINAL", $"This application is already {application.Status} and can no longer be withdrawn.");
+        }
+
         var previousStatus = application.Status;
         application.Status = ApplicationStatus.Withdrawn;
         application.UpdatedAt = DateTime.UtcNow;
@@ -277,7 +302,9 @@ public class JobApplicationService : IJobApplicationService
         }
     }
 
-    private static JobApplicationDto ToDto(JobApplication a, string jobTitle, string companyName, string? candidateFullName = null) => new(
+    private static JobApplicationDto ToDto(
+        JobApplication a, string jobTitle, string companyName, string? candidateFullName = null,
+        string? jobLocation = null, DateTime? nextInterviewAtUtc = null) => new(
         a.Id,
         a.JobPostingId,
         jobTitle,
@@ -288,7 +315,10 @@ public class JobApplicationService : IJobApplicationService
         a.Status.ToString(),
         a.CreatedAt,
         a.UpdatedAt,
-        a.MatchScore.HasValue ? (int)a.MatchScore.Value : null);
+        a.MatchScore.HasValue ? (int)a.MatchScore.Value : null,
+        jobLocation,
+        nextInterviewAtUtc,
+        a.CandidateProfile is null ? null : AvatarUrlFormatter.Format(a.CandidateProfile.Id, a.CandidateProfile.AvatarStorageKey));
 
     private static JobApplicationDetailDto ToDetailDto(JobApplication a) => new(
         a.Id,
@@ -314,7 +344,23 @@ public class JobApplicationService : IJobApplicationService
                 h.ChangedByUser?.FullName ?? "System",
                 h.ChangedAt,
                 h.Note))
-            .ToList());
+            .ToList(),
+        ComputeNextAction(a.Status));
+
+    /// <summary>Plain-language "what happens next" guidance per status — static, no AI.</summary>
+    private static string ComputeNextAction(ApplicationStatus status) => status switch
+    {
+        ApplicationStatus.Applied => "Awaiting recruiter review.",
+        ApplicationStatus.Screening => "Your application is being screened.",
+        ApplicationStatus.Shortlisted => "You've been shortlisted — an interview may be scheduled soon.",
+        ApplicationStatus.InterviewScheduled => "Interview scheduled — check your email/notifications for details.",
+        ApplicationStatus.InterviewCompleted => "Interview completed — awaiting a decision.",
+        ApplicationStatus.Offer => "Offer extended — respond soon.",
+        ApplicationStatus.Hired => "Congratulations — you were hired for this role.",
+        ApplicationStatus.Rejected => "This application was not successful.",
+        ApplicationStatus.Withdrawn => "You withdrew this application.",
+        _ => "No action needed right now.",
+    };
 
     private static IReadOnlyList<string> SplitCsv(string? csv) =>
         string.IsNullOrWhiteSpace(csv)

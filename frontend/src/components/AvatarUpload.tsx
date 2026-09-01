@@ -7,6 +7,7 @@ import { resolveAvatarUrl } from "../utils/format";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import Avatar from "./ui/Avatar";
+import AvatarCropModal from "./AvatarCropModal";
 
 const ALLOWED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
 const MAX_SIZE_BYTES = 5 * 1024 * 1024;
@@ -35,9 +36,11 @@ export default function AvatarUpload({ profile, onChange }: AvatarUploadProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [cropSaving, setCropSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  async function handleFileChange() {
+  function handleFileChange() {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
 
@@ -48,20 +51,32 @@ export default function AvatarUpload({ profile, onChange }: AvatarUploadProps) {
       return;
     }
 
+    setError(null);
+    setPendingFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleCropCancel() {
+    setPendingFile(null);
+  }
+
+  async function handleCropSave(croppedFile: File) {
+    setCropSaving(true);
     setStatus("uploading");
     setProgress(0);
     setError(null);
 
     try {
-      const updated = await uploadAvatar(file, setProgress);
+      const updated = await uploadAvatar(croppedFile, setProgress);
       onChange(updated);
       updateAvatarUrl(updated.avatarUrl);
       toast.success("Profile photo updated.");
+      setPendingFile(null);
     } catch (err) {
       setError(getErrorMessage(err, "Photo upload failed"));
     } finally {
       setStatus("idle");
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setCropSaving(false);
     }
   }
 
@@ -125,6 +140,10 @@ export default function AvatarUpload({ profile, onChange }: AvatarUploadProps) {
         </span>
       )}
       <p className="hint">JPG, PNG, or WEBP, up to 5 MB. Square images look best.</p>
+
+      {pendingFile && (
+        <AvatarCropModal file={pendingFile} onCancel={handleCropCancel} onSave={handleCropSave} saving={cropSaving} />
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, UserRound } from "lucide-react";
+import { ArrowRight, Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, Sparkles, UserRound } from "lucide-react";
 import { getCandidateDashboard } from "../api/dashboard";
 import { acceptInvitation, declineInvitation, dismissInvitation, getMyInvitations } from "../api/invitations";
 import { useAuth } from "../context/AuthContext";
@@ -90,6 +90,25 @@ export default function CandidateDashboardPage() {
           </div>
         </div>
       </div>
+
+      {dashboard.nextBestActions.length > 0 && (
+        <Card>
+          <SectionHeader title="Next best actions" subtitle="A few things that would help your search right now." as="h3" />
+          <ul className="job-list-compact">
+            {dashboard.nextBestActions.map((action) => (
+              <li key={action.label} className="job-card job-card-compact">
+                <Link to={action.linkPath}>
+                  <h4><Sparkles size={16} style={{ verticalAlign: "-3px", marginRight: "0.3rem" }} />{action.label}</h4>
+                </Link>
+                <p className="hint">{action.description}</p>
+                <Link to={action.linkPath} className="link-button" style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", marginTop: "0.3rem" }}>
+                  Go <ArrowRight size={13} />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <div className="dashboard-grid">
         <Card className="profile-completion-card">

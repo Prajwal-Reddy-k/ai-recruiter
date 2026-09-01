@@ -13,7 +13,10 @@ public record JobApplicationDto(
     string Status,
     DateTime CreatedAt,
     DateTime? UpdatedAt,
-    int? MatchScore);
+    int? MatchScore,
+    string? JobLocation = null,
+    DateTime? NextInterviewAtUtc = null,
+    string? CandidateAvatarUrl = null);
 
 public record UpdateApplicationStatusRequest(ApplicationStatus Status, string? Note);
 
@@ -35,4 +38,5 @@ public record JobApplicationDetailDto(
     IReadOnlyList<string> MissingSkills,
     IReadOnlyList<string> SuggestedImprovements,
     string? ScoringExplanation,
-    IReadOnlyList<StatusHistoryEntryDto> StatusHistory);
+    IReadOnlyList<StatusHistoryEntryDto> StatusHistory,
+    string NextAction);

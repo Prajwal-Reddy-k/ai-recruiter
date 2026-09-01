@@ -128,6 +128,7 @@ export default function NavBar() {
       <>
         <Link to="/candidate/dashboard" onClick={() => setMobileOpen(false)}>Dashboard</Link>
         <Link to="/profile" onClick={() => setMobileOpen(false)}>My Profile</Link>
+        <Link to="/resume-builder" onClick={() => setMobileOpen(false)}>Resume Builder</Link>
         <Link to="/applications" onClick={() => setMobileOpen(false)}>My Applications</Link>
         <Link to="/interviews" onClick={() => setMobileOpen(false)}>Interviews</Link>
         <Link to="/messages" onClick={() => setMobileOpen(false)}>Messages</Link>

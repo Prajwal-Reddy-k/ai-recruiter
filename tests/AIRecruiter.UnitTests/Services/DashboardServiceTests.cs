@@ -42,7 +42,7 @@ public class DashboardServiceTests
         var user = new User { FullName = "Casey Candidate", Email = "casey@example.com", Role = UserRole.Candidate };
         db.Users.Add(user);
         await db.SaveChangesAsync();
-        db.CandidateProfiles.Add(new CandidateProfile
+        var profile = new CandidateProfile
         {
             UserId = user.Id,
             Headline = "Backend Engineer",
@@ -51,9 +51,15 @@ public class DashboardServiceTests
             ExperienceSummary = "5 years",
             TotalExperienceYears = 5,
             City = "Bengaluru",
-            SkillsCsv = "C#",
+            SkillsCsv = "C#, SQL Server, Docker",
             ResumeStorageKey = "abc123.pdf",
-        });
+            AvatarStorageKey = "avatar123.jpg",
+            LinkedInUrl = "https://linkedin.com/in/casey",
+            PreferredJobTypesCsv = "FullTime",
+        };
+        db.CandidateProfiles.Add(profile);
+        await db.SaveChangesAsync();
+        db.CandidateWorkExperiences.Add(new CandidateWorkExperience { CandidateProfileId = profile.Id, Title = "Engineer", Company = "Acme", StartDate = DateTime.UtcNow.AddYears(-2) });
         await db.SaveChangesAsync();
 
         var sut = CreateSut(db);
@@ -164,5 +170,47 @@ public class DashboardServiceTests
         Assert.Equal(1, dashboard.TotalApplicantCount);
         Assert.Single(dashboard.JobPerformance);
         Assert.Equal("R1 Job", dashboard.JobPerformance.Single().Title);
+    }
+
+    [Fact]
+    public async Task GetCandidateDashboardAsync_IncompleteProfile_SuggestsCompletingProfileFirst()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = new User { FullName = "Casey Candidate", Email = "casey@example.com", Role = UserRole.Candidate };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        db.CandidateProfiles.Add(new CandidateProfile { UserId = user.Id });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var dashboard = await sut.GetCandidateDashboardAsync(user.Id);
+
+        Assert.NotEmpty(dashboard.NextBestActions);
+    }
+
+    [Fact]
+    public async Task GetCandidateDashboardAsync_PendingInvitation_AppearsInNextBestActions()
+    {
+        using var db = TestDbContextFactory.Create();
+        var candidateUser = new User { FullName = "Casey Candidate", Email = "casey@example.com", Role = UserRole.Candidate };
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita@example.com", Role = UserRole.Recruiter };
+        db.Users.AddRange(candidateUser, recruiterUser);
+        await db.SaveChangesAsync();
+        var company = new Company { Name = "Acme" };
+        var recruiterProfile = new RecruiterProfile { UserId = recruiterUser.Id, Company = company };
+        var candidateProfile = new CandidateProfile { UserId = candidateUser.Id };
+        db.RecruiterProfiles.Add(recruiterProfile);
+        db.CandidateProfiles.Add(candidateProfile);
+        await db.SaveChangesAsync();
+        var job = new JobPosting { Title = "Role", Description = "d", Status = JobStatus.Open, CompanyId = company.Id, RecruiterProfileId = recruiterProfile.Id };
+        db.JobPostings.Add(job);
+        await db.SaveChangesAsync();
+        db.Invitations.Add(new Invitation { JobPostingId = job.Id, CandidateProfileId = candidateProfile.Id, InvitedByUserId = recruiterUser.Id, Status = InvitationStatus.Sent, ExpiresAtUtc = DateTime.UtcNow.AddDays(14) });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var dashboard = await sut.GetCandidateDashboardAsync(candidateUser.Id);
+
+        Assert.Contains(dashboard.NextBestActions, a => a.Label.Contains("invitation", StringComparison.OrdinalIgnoreCase));
     }
 }

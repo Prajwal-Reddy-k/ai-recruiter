@@ -9,6 +9,7 @@ import ProtectedRoute, { dashboardPathForRole } from "./components/ProtectedRout
 import LandingPage from "./pages/LandingPage";
 import HelpSupportPage from "./pages/HelpSupportPage";
 import SettingsPage from "./pages/SettingsPage";
+import ResumeBuilderPage from "./pages/ResumeBuilderPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -151,6 +152,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Candidate"]}>
                   <CandidateProfilePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resume-builder"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <ResumeBuilderPage />
                 </ProtectedRoute>
               }
             />

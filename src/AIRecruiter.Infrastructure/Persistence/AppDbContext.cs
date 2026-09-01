@@ -30,6 +30,10 @@ public class AppDbContext : DbContext
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<Feedback> Feedbacks => Set<Feedback>();
     public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
+    public DbSet<CandidateWorkExperience> CandidateWorkExperiences => Set<CandidateWorkExperience>();
+    public DbSet<CandidateEducation> CandidateEducations => Set<CandidateEducation>();
+    public DbSet<CandidateCertification> CandidateCertifications => Set<CandidateCertification>();
+    public DbSet<CandidateProject> CandidateProjects => Set<CandidateProject>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -318,6 +322,31 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<NotificationPreference>()
             .HasIndex(p => p.UserId)
             .IsUnique();
+
+        // --- Resume builder (all cascade-deleted with the owning candidate profile) ---
+        modelBuilder.Entity<CandidateWorkExperience>()
+            .HasOne(e => e.CandidateProfile)
+            .WithMany(c => c.WorkExperiences)
+            .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CandidateEducation>()
+            .HasOne(e => e.CandidateProfile)
+            .WithMany(c => c.ResumeEducations)
+            .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CandidateCertification>()
+            .HasOne(e => e.CandidateProfile)
+            .WithMany(c => c.Certifications)
+            .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CandidateProject>()
+            .HasOne(e => e.CandidateProfile)
+            .WithMany(c => c.Projects)
+            .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

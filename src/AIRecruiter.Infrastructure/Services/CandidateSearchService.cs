@@ -50,6 +50,10 @@ public class CandidateSearchService : ICandidateSearchService
 
         var candidate = await _db.CandidateProfiles
             .Include(c => c.User)
+            .Include(c => c.WorkExperiences)
+            .Include(c => c.ResumeEducations)
+            .Include(c => c.Certifications)
+            .Include(c => c.Projects)
             .FirstOrDefaultAsync(c => c.Id == candidateProfileId, ct)
             ?? throw new NotFoundException("Candidate not found.");
 
@@ -93,7 +97,13 @@ public class CandidateSearchService : ICandidateSearchService
             candidate.TotalExperienceYears,
             IndiaLocationFormatter.Format(candidate.City, candidate.State, isRemote: false),
             candidate.SkillsCsv,
-            appDtos);
+            appDtos,
+            AvatarUrlFormatter.Format(candidate.Id, candidate.AvatarStorageKey),
+            candidate.WorkExperiences.OrderBy(e => e.DisplayOrder).Select(e => new WorkExperienceDto(e.Id, e.Title, e.Company, e.Location, e.StartDate, e.EndDate, e.Description, e.DisplayOrder)).ToList(),
+            candidate.ResumeEducations.OrderBy(e => e.DisplayOrder).Select(e => new EducationEntryDto(e.Id, e.Institution, e.Degree, e.FieldOfStudy, e.StartDate, e.EndDate, e.GradeOrGpa, e.Description, e.DisplayOrder)).ToList(),
+            candidate.Certifications.OrderBy(e => e.DisplayOrder).Select(e => new CertificationDto(e.Id, e.Name, e.IssuingOrganization, e.IssueDate, e.ExpiryDate, e.CredentialUrl, e.DisplayOrder)).ToList(),
+            candidate.Projects.OrderBy(e => e.DisplayOrder).Select(e => new ProjectDto(e.Id, e.Title, e.Description, e.ProjectUrl, e.TechnologiesCsv, e.DisplayOrder)).ToList(),
+            candidate.AchievementsText);
     }
 
     public async Task<string> ExportCsvAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default)
@@ -187,7 +197,8 @@ public class CandidateSearchService : ICandidateSearchService
             c.TotalExperienceYears,
             c.AvailabilityStatus.ToString(),
             c.RemotePreference,
-            c.PreferredJobTypesCsv)).ToList();
+            c.PreferredJobTypesCsv,
+            AvatarUrlFormatter.Format(c.Id, c.AvatarStorageKey))).ToList();
     }
 
     private async Task<int> GetCallerCompanyIdAsync(int recruiterUserId, CancellationToken ct)
@@ -276,7 +287,8 @@ public class CandidateSearchService : ICandidateSearchService
         a.JobPosting.Title,
         a.CreatedAt,
         a.MatchScore.HasValue ? (int)a.MatchScore.Value : null,
-        a.JobPosting.RecruiterProfile.UserId == recruiterUserId);
+        a.JobPosting.RecruiterProfile.UserId == recruiterUserId,
+        AvatarUrlFormatter.Format(a.CandidateProfileId, a.CandidateProfile.AvatarStorageKey));
 
     private static string CsvField(string? value)
     {

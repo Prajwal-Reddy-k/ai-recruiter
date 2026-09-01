@@ -37,7 +37,8 @@ public record CandidateSearchResultDto(
     string JobTitle,
     DateTime AppliedAt,
     int? MatchScore,
-    bool CanManage);
+    bool CanManage,
+    string? AvatarUrl = null);
 
 public record InterviewSummaryDto(int InterviewId, string Status, DateTime? NextSlotUtc);
 
@@ -62,7 +63,13 @@ public record CandidateSearchDetailDto(
     int? TotalExperienceYears,
     string DisplayLocation,
     string? SkillsCsv,
-    IReadOnlyList<CandidateApplicationSummaryDto> Applications);
+    IReadOnlyList<CandidateApplicationSummaryDto> Applications,
+    string? AvatarUrl = null,
+    IReadOnlyList<WorkExperienceDto>? WorkExperiences = null,
+    IReadOnlyList<EducationEntryDto>? Educations = null,
+    IReadOnlyList<CertificationDto>? Certifications = null,
+    IReadOnlyList<ProjectDto>? Projects = null,
+    string? AchievementsText = null);
 
 public record DiscoverCandidatesQuery(
     string? Skills = null,
@@ -83,4 +90,5 @@ public record DiscoverableCandidateDto(
     int? TotalExperienceYears,
     string AvailabilityStatus,
     bool? RemotePreference,
-    string? PreferredJobTypesCsv);
+    string? PreferredJobTypesCsv,
+    string? AvatarUrl = null);

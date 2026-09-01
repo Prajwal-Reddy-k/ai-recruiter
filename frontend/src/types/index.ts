@@ -206,6 +206,9 @@ export interface JobApplication {
   createdAt: string;
   updatedAt: string | null;
   matchScore: number | null;
+  jobLocation: string | null;
+  nextInterviewAtUtc: string | null;
+  candidateAvatarUrl: string | null;
 }
 
 export interface StatusHistoryEntry {
@@ -233,6 +236,7 @@ export interface JobApplicationDetail {
   suggestedImprovements: string[];
   scoringExplanation: string | null;
   statusHistory: StatusHistoryEntry[];
+  nextAction: string;
 }
 
 export interface LocationSuggestion {
@@ -288,6 +292,12 @@ export interface UpcomingInterview {
   endUtc: string;
 }
 
+export interface NextBestAction {
+  label: string;
+  description: string;
+  linkPath: string;
+}
+
 export interface CandidateDashboard {
   profileCompletionPercent: number;
   applicationSummary: ApplicationStatusSummary;
@@ -299,6 +309,7 @@ export interface CandidateDashboard {
   activeAlertCount: number;
   alertMatches: JobPosting[];
   upcomingInterviews: UpcomingInterview[];
+  nextBestActions: NextBestAction[];
 }
 
 export interface JobPerformance {
@@ -486,6 +497,7 @@ export interface DiscoverableCandidate {
   availabilityStatus: string;
   remotePreference: boolean | null;
   preferredJobTypesCsv: string | null;
+  avatarUrl: string | null;
 }
 
 export interface AuditLogEntry {
@@ -543,6 +555,7 @@ export interface CandidateSearchResult {
   appliedAt: string;
   matchScore: number | null;
   canManage: boolean;
+  avatarUrl: string | null;
 }
 
 export interface InterviewSummary {
@@ -574,6 +587,130 @@ export interface CandidateSearchDetail {
   displayLocation: string;
   skillsCsv: string | null;
   applications: CandidateApplicationSummary[];
+  avatarUrl: string | null;
+  workExperiences: WorkExperience[] | null;
+  educations: EducationEntry[] | null;
+  certifications: Certification[] | null;
+  projects: ResumeProject[] | null;
+  achievementsText: string | null;
+}
+
+// --- Resume builder ---------------------------------------------------------
+
+export interface WorkExperience {
+  id: number;
+  title: string;
+  company: string;
+  location: string | null;
+  startDate: string;
+  endDate: string | null;
+  description: string | null;
+  displayOrder: number;
+}
+
+export interface UpsertWorkExperienceRequest {
+  title: string;
+  company: string;
+  location?: string;
+  startDate: string;
+  endDate?: string | null;
+  description?: string;
+}
+
+export interface EducationEntry {
+  id: number;
+  institution: string;
+  degree: string;
+  fieldOfStudy: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  gradeOrGpa: string | null;
+  description: string | null;
+  displayOrder: number;
+}
+
+export interface UpsertEducationEntryRequest {
+  institution: string;
+  degree: string;
+  fieldOfStudy?: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  gradeOrGpa?: string;
+  description?: string;
+}
+
+export interface Certification {
+  id: number;
+  name: string;
+  issuingOrganization: string | null;
+  issueDate: string | null;
+  expiryDate: string | null;
+  credentialUrl: string | null;
+  displayOrder: number;
+}
+
+export interface UpsertCertificationRequest {
+  name: string;
+  issuingOrganization?: string;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  credentialUrl?: string;
+}
+
+export interface ResumeProject {
+  id: number;
+  title: string;
+  description: string | null;
+  projectUrl: string | null;
+  technologiesCsv: string | null;
+  displayOrder: number;
+}
+
+export interface UpsertProjectRequest {
+  title: string;
+  description?: string;
+  projectUrl?: string;
+  technologiesCsv?: string;
+}
+
+export interface ReorderRequest {
+  orderedIds: number[];
+}
+
+export interface MissingProfileItem {
+  label: string;
+  tip: string;
+  linkPath: string;
+}
+
+export interface ProfileStrength {
+  score: number;
+  missingItems: MissingProfileItem[];
+}
+
+export interface UpsertResumeSummaryRequest {
+  summary?: string;
+  skillsCsv?: string;
+  linkedInUrl?: string;
+  githubUrl?: string;
+  portfolioUrl?: string;
+  achievementsText?: string;
+}
+
+export interface Resume {
+  fullName: string;
+  headline: string | null;
+  summary: string | null;
+  skillsCsv: string | null;
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  achievementsText: string | null;
+  workExperiences: WorkExperience[];
+  educations: EducationEntry[];
+  certifications: Certification[];
+  projects: ResumeProject[];
+  strength: ProfileStrength;
 }
 
 // --- Job templates ---------------------------------------------------------

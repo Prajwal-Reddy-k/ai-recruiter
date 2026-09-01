@@ -6,6 +6,8 @@ import type { JobApplication } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
 import EmptyState from "../components/ui/EmptyState";
+import Avatar from "../components/ui/Avatar";
+import { resolveAvatarUrl } from "../utils/format";
 
 interface Column {
   key: string;
@@ -124,7 +126,8 @@ export default function KanbanBoardPage() {
                         draggable
                         onDragStart={(e) => e.dataTransfer.setData("text/plain", String(app.id))}
                       >
-                        <Link to={`/applications/${app.id}`} className="kanban-card-title">
+                        <Link to={`/applications/${app.id}`} className="kanban-card-title" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                          <Avatar name={app.candidateFullName ?? "?"} size={24} src={resolveAvatarUrl(app.candidateAvatarUrl)} />
                           {app.candidateFullName ?? `Application #${app.id}`}
                         </Link>
                         {app.candidateHeadline && <p className="hint">{app.candidateHeadline}</p>}
