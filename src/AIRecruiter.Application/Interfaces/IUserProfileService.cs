@@ -9,4 +9,6 @@ public interface IUserProfileService
 {
     Task<UserDetailsDto> GetMyDetailsAsync(int userId, CancellationToken ct = default);
     Task<UserDetailsDto> UpdateMyDetailsAsync(int userId, UpdateUserDetailsRequest request, CancellationToken ct = default);
+    Task ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct = default);
+    Task RequestAccountDeletionAsync(int userId, RequestAccountDeletionRequest request, CancellationToken ct = default);
 }

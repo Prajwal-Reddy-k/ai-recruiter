@@ -1,5 +1,6 @@
 using AIRecruiter.API.Extensions;
 using AIRecruiter.Application.DTOs.Admin;
+using AIRecruiter.Application.DTOs.Feedback;
 using AIRecruiter.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,12 +13,24 @@ namespace AIRecruiter.API.Controllers;
 public class AdminController : ControllerBase
 {
     private readonly IAdminService _adminService;
+    private readonly IFeedbackService _feedback;
     private readonly IAuditLogService _auditLog;
 
-    public AdminController(IAdminService adminService, IAuditLogService auditLog)
+    public AdminController(IAdminService adminService, IFeedbackService feedback, IAuditLogService auditLog)
     {
         _adminService = adminService;
+        _feedback = feedback;
         _auditLog = auditLog;
+    }
+
+    [HttpGet("feedback")]
+    public async Task<IActionResult> GetFeedback(CancellationToken ct) => Ok(await _feedback.GetAllAsync(ct));
+
+    [HttpPost("feedback/{id:int}/status")]
+    public async Task<IActionResult> SetFeedbackStatus(int id, SetFeedbackStatusRequest request, CancellationToken ct)
+    {
+        await _feedback.SetStatusAsync(User.GetUserId(), id, request, ct);
+        return NoContent();
     }
 
     [HttpGet("users")]

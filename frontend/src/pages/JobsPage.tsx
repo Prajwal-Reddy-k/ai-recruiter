@@ -1,13 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { MapPin, Search, SlidersHorizontal, X } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { MapPin, SlidersHorizontal, X } from "lucide-react";
 import { getOpenJobs } from "../api/jobs";
 import { getSavedJobs } from "../api/savedJobs";
 import type { JobPosting } from "../types";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { addRecentSearch, getRecentSearches } from "../utils/recentSearches";
+import { SUGGESTED_SEARCHES } from "../utils/searchSuggestions";
+import { POPULAR_ROLES, roleSearchPath } from "../utils/popularRoles";
 import JobCard from "../components/JobCard";
+import JobCompareModal from "../components/JobCompareModal";
 import EmptyState from "../components/ui/EmptyState";
 import Button from "../components/ui/Button";
+import SearchBar from "../components/ui/SearchBar";
+import FilterChip from "../components/ui/FilterChip";
+import Drawer from "../components/ui/Drawer";
 import { JobCardSkeleton } from "../components/ui/Skeleton";
 import {
   DEFAULT_FILTERS,
@@ -24,6 +32,7 @@ import {
 } from "../utils/jobFilters";
 
 const PAGE_SIZE = 9;
+const MAX_COMPARE = 3;
 const EXPERIENCE_OPTIONS: { value: ExperienceBucket; label: string }[] = [
   { value: "0-2", label: "0-2 years" },
   { value: "3-5", label: "3-5 years" },
@@ -34,16 +43,20 @@ const JOB_TYPE_OPTIONS = ["FullTime", "PartTime", "Contract", "Internship", "Fre
 
 export default function JobsPage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const [allJobs, setAllJobs] = useState<JobPosting[]>([]);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [titleQuery, setTitleQuery] = useState(() => searchParams.get("q") ?? "");
-  const [locationQuery, setLocationQuery] = useState("");
+  const [locationQuery, setLocationQuery] = useState(() => searchParams.get("location") ?? "");
   const [filters, setFilters] = useState<JobFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [compareIds, setCompareIds] = useState<Set<number>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
 
   useEffect(() => {
     void loadJobs();
@@ -62,6 +75,7 @@ export default function JobsPage() {
       getSavedJobs()
         .then((entries) => setSavedIds(new Set(entries.map((e) => e.job.id))))
         .catch(() => setSavedIds(new Set()));
+      setRecentSearches(getRecentSearches(user.userId));
     }
   }, [user]);
 
@@ -72,6 +86,12 @@ export default function JobsPage() {
       setAllJobs(data);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function recordSearch(query: string) {
+    if (user?.role === "Candidate" && query.trim()) {
+      setRecentSearches(addRecentSearch(user.userId, query));
     }
   }
 
@@ -88,7 +108,7 @@ export default function JobsPage() {
           return haystack.includes(titleQuery.trim().toLowerCase());
         })
       : allJobs;
-    return sortJobs(filterJobs(searched, combinedFilters), sortKey);
+    return sortJobs(filterJobs(searched, combinedFilters), sortKey, titleQuery);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allJobs, titleQuery, filters, locationQuery, sortKey]);
 
@@ -146,6 +166,22 @@ export default function JobsPage() {
     setVisibleCount(PAGE_SIZE);
   }
 
+  function toggleCompare(jobId: number) {
+    setCompareIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) {
+        next.delete(jobId);
+      } else {
+        if (next.size >= MAX_COMPARE) {
+          toast.info(`You can compare up to ${MAX_COMPARE} jobs at a time.`);
+          return prev;
+        }
+        next.add(jobId);
+      }
+      return next;
+    });
+  }
+
   const hasActiveFilters =
     filters.workMode !== "all" ||
     filters.experience.length > 0 ||
@@ -156,17 +192,19 @@ export default function JobsPage() {
     filters.datePosted !== "any" ||
     locationQuery.trim() !== "";
 
-  const filterSidebar = (
-    <aside className={`filter-sidebar ui-card ui-card-padded ${filtersOpen ? "filter-sidebar-open" : ""}`}>
-      <div className="section-header" style={{ marginBottom: "1rem" }}>
-        <h3>Filters</h3>
-        {hasActiveFilters && (
-          <button type="button" className="link-button" onClick={clearFilters}>
-            Clear all
-          </button>
-        )}
-      </div>
+  const activeChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...(filters.workMode !== "all" ? [{ key: "workMode", label: filters.workMode === "remote" ? "Remote" : "On-site", onRemove: () => setWorkMode("all") }] : []),
+    ...filters.experience.map((b) => ({ key: `exp-${b}`, label: EXPERIENCE_OPTIONS.find((o) => o.value === b)?.label ?? b, onRemove: () => toggleExperience(b) })),
+    ...filters.jobTypes.map((t) => ({ key: `type-${t}`, label: t.replace(/([A-Z])/g, " $1").trim(), onRemove: () => toggleJobType(t) })),
+    ...filters.skills.map((s) => ({ key: `skill-${s}`, label: s, onRemove: () => toggleSkill(s) })),
+    ...(filters.state ? [{ key: "state", label: filters.state, onRemove: () => setStateFilter("") }] : []),
+    ...(filters.city ? [{ key: "city", label: filters.city, onRemove: () => setCityFilter("") }] : []),
+    ...(filters.datePosted !== "any" ? [{ key: "datePosted", label: filters.datePosted === "24h" ? "Last 24 hours" : filters.datePosted === "week" ? "Past week" : "Past month", onRemove: () => setDatePosted("any") }] : []),
+    ...(locationQuery.trim() ? [{ key: "location", label: `Near "${locationQuery.trim()}"`, onRemove: () => setLocationQuery("") }] : []),
+  ];
 
+  const filterPanelBody = (
+    <>
       <div className="filter-group">
         <h4>Work mode</h4>
         {(["all", "remote", "onsite"] as WorkMode[]).map((mode) => (
@@ -262,8 +300,10 @@ export default function JobsPage() {
           </div>
         </div>
       )}
-    </aside>
+    </>
   );
+
+  const compareJobs = allJobs.filter((j) => compareIds.has(j.id));
 
   return (
     <div>
@@ -271,15 +311,14 @@ export default function JobsPage() {
         <h1>Find your next role</h1>
         <p>Search open positions by title, skill, or location.</p>
         <div className="jobs-search-bar">
-          <div className="jobs-search-field">
-            <Search size={18} />
-            <input
-              placeholder="Job title or skill"
-              value={titleQuery}
-              onChange={(e) => setTitleQuery(e.target.value)}
-              aria-label="Search by job title or skill"
-            />
-          </div>
+          <SearchBar
+            value={titleQuery}
+            onChange={setTitleQuery}
+            onSubmit={recordSearch}
+            placeholder="Job title or skill"
+            suggestions={SUGGESTED_SEARCHES}
+            aria-label="Search by job title or skill"
+          />
           <div className="jobs-search-field">
             <MapPin size={18} />
             <input
@@ -290,18 +329,49 @@ export default function JobsPage() {
             />
           </div>
         </div>
+        {recentSearches.length > 0 && (
+          <div className="recent-searches-row">
+            <span>Recent:</span>
+            {recentSearches.map((s) => (
+              <button key={s} type="button" onClick={() => setTitleQuery(s)}>{s}</button>
+            ))}
+          </div>
+        )}
       </section>
 
       <button
         type="button"
         className="btn btn-secondary btn-sm mobile-filter-toggle"
-        onClick={() => setFiltersOpen((v) => !v)}
+        onClick={() => setFiltersOpen(true)}
       >
-        <SlidersHorizontal size={16} /> {filtersOpen ? "Hide filters" : "Filters"}
+        <SlidersHorizontal size={16} /> Filters
       </button>
 
+      {activeChips.length > 0 && (
+        <div className="active-filters-row">
+          {activeChips.map((chip) => (
+            <FilterChip key={chip.key} label={chip.label} onRemove={chip.onRemove} />
+          ))}
+          <button type="button" className="link-button" onClick={clearFilters}>Clear all filters</button>
+        </div>
+      )}
+
       <div className="jobs-layout">
-        {filterSidebar}
+        <aside className="filter-sidebar ui-card ui-card-padded">
+          <div className="section-header" style={{ marginBottom: "1rem" }}>
+            <h3>Filters</h3>
+            {hasActiveFilters && (
+              <button type="button" className="link-button" onClick={clearFilters}>
+                Clear all
+              </button>
+            )}
+          </div>
+          {filterPanelBody}
+        </aside>
+
+        <Drawer open={filtersOpen} onClose={() => setFiltersOpen(false)} title="Filters">
+          {filterPanelBody}
+        </Drawer>
 
         <div>
           <div className="results-bar">
@@ -309,8 +379,10 @@ export default function JobsPage() {
               <strong>{filteredJobs.length}</strong> {filteredJobs.length === 1 ? "role" : "roles"} found
             </span>
             <select className="sort-select" value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
-              <option value="newest">Newest first</option>
-              <option value="salary-high">Highest salary</option>
+              <option value="newest">Most Recent</option>
+              <option value="relevance">Relevance</option>
+              <option value="salary-high">Salary: High to Low</option>
+              <option value="experience-low">Experience: Low to High</option>
             </select>
           </div>
 
@@ -324,15 +396,29 @@ export default function JobsPage() {
             <EmptyState
               icon={<X size={32} />}
               title="No roles match your search"
-              description="Try widening your filters or searching different keywords."
-              action={hasActiveFilters ? <Button variant="secondary" onClick={clearFilters}>Clear filters</Button> : undefined}
+              description="Try widening your filters, searching different keywords, or explore a popular role below."
+              action={
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem", alignItems: "center" }}>
+                  {hasActiveFilters && <Button variant="secondary" onClick={clearFilters}>Clear filters</Button>}
+                  <div className="landing-hero-roles" style={{ marginTop: 0 }}>
+                    {POPULAR_ROLES.slice(0, 4).map((role) => (
+                      <Link key={role} to={roleSearchPath(role)} style={{ color: "var(--text-muted)", border: "1px solid var(--border)" }}>{role}</Link>
+                    ))}
+                  </div>
+                </div>
+              }
             />
           ) : (
             <>
               <ul className="job-list">
                 {visibleJobs.map((job) => (
                   <li key={job.id}>
-                    <JobCard job={job} initiallySaved={savedIds.has(job.id)} />
+                    <JobCard
+                      job={job}
+                      initiallySaved={savedIds.has(job.id)}
+                      compareChecked={compareIds.has(job.id)}
+                      onToggleCompare={toggleCompare}
+                    />
                   </li>
                 ))}
               </ul>
@@ -347,6 +433,16 @@ export default function JobsPage() {
           )}
         </div>
       </div>
+
+      {compareIds.size > 0 && (
+        <div className="compare-bar">
+          <span>{compareIds.size} job{compareIds.size === 1 ? "" : "s"} selected</span>
+          <Button size="sm" onClick={() => setCompareOpen(true)} disabled={compareIds.size < 2}>Compare</Button>
+          <button type="button" className="link-button" style={{ color: "var(--nav-text-muted)" }} onClick={() => setCompareIds(new Set())}>Clear</button>
+        </div>
+      )}
+
+      <JobCompareModal open={compareOpen} jobs={compareJobs} onClose={() => setCompareOpen(false)} />
     </div>
   );
 }

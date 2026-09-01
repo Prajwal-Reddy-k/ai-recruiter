@@ -161,3 +161,39 @@ img {
     --font-2xl: 1.5rem;
   }
 }
+
+/* ============================= Dark theme =============================
+   Brand colors (--color-primary/--color-accent/--nav-*) are left untouched —
+   only the neutral surface/text tokens are redefined, since those are what
+   every component already builds on. Respects the OS preference by default;
+   an explicit [data-theme] attribute (set by ThemeContext) always wins. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page: #14161f;
+    --bg-card: #1c1f2c;
+    --bg-subtle: #232636;
+    --border: #2e3244;
+    --border-strong: #3d4258;
+    --text: #e8e9f0;
+    --text-muted: #a8adc0;
+    --text-faint: #767c92;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg-page: #14161f;
+  --bg-card: #1c1f2c;
+  --bg-subtle: #232636;
+  --border: #2e3244;
+  --border-strong: #3d4258;
+  --text: #e8e9f0;
+  --text-muted: #a8adc0;
+  --text-faint: #767c92;
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg-page);
+  color: var(--text);
+}

@@ -303,6 +303,48 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.ToTable("Companies");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.Feedback", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SubmittedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubmittedByUserId");
+
+                    b.ToTable("Feedbacks");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Interview", b =>
                 {
                     b.Property<int>("Id")
@@ -917,6 +959,43 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.ToTable("Notifications");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("ApplicationsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("InterviewsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("InvitationsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("MessagesEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("NotificationPreferences");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.PasswordResetCode", b =>
                 {
                     b.Property<int>("Id")
@@ -1168,6 +1247,16 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.Feedback", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "SubmittedByUser")
+                        .WithMany()
+                        .HasForeignKey("SubmittedByUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("SubmittedByUser");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Interview", b =>
                 {
                     b.HasOne("AIRecruiter.Domain.Entities.User", "CreatedByUser")
@@ -1398,6 +1487,17 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.HasOne("AIRecruiter.Domain.Entities.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.NotificationPreference", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "User")
+                        .WithOne()
+                        .HasForeignKey("AIRecruiter.Domain.Entities.NotificationPreference", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

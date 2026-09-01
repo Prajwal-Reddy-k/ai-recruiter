@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, MessageSquare, User, X } from "lucide-react";
+import { Bell, ChevronDown, Download, LayoutDashboard, LogOut, Menu, MessageSquare, Moon, Settings, Sun, User, X } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import { getExternalJobsAvailability } from "../api/externalJobs";
 import { getMyNotifications, getUnreadCount, markNotificationRead } from "../api/notifications";
 import { getUnreadMessageCount } from "../api/messages";
@@ -15,6 +16,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function NavBar() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [externalJobsAvailable, setExternalJobsAvailable] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -217,6 +219,9 @@ export default function NavBar() {
                         <User size={16} /> {profileLabel}
                       </Link>
                     )}
+                    <Link to="/settings" role="menuitem" onClick={() => setMenuOpen(false)}>
+                      <Settings size={16} /> Account Settings
+                    </Link>
                     <button type="button" role="menuitem" onClick={handleLogout}>
                       <LogOut size={16} /> Logout
                     </button>
@@ -230,6 +235,16 @@ export default function NavBar() {
               <Link to="/register" className="btn btn-primary btn-sm">Register</Link>
             </div>
           )}
+
+          <button
+            type="button"
+            className="icon-btn theme-toggle-btn"
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? <Sun size={19} /> : <Moon size={19} />}
+          </button>
 
           {installPrompt && (
             <button

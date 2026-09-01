@@ -14,6 +14,7 @@ import StatCard from "../components/ui/StatCard";
 import SectionHeader from "../components/ui/SectionHeader";
 import EmptyState from "../components/ui/EmptyState";
 import { Badge, StatusBadge } from "../components/ui/Badge";
+import PageHeader from "../components/ui/PageHeader";
 
 const EXPIRING_SOON_WINDOW_DAYS = 3;
 
@@ -57,15 +58,11 @@ export default function RecruiterDashboardPage() {
 
   return (
     <div className="dashboard-page">
-      <div className="page-header dashboard-welcome">
-        <div>
-          <h1>Welcome back{user ? `, ${user.fullName.split(" ")[0]}` : ""}</h1>
-          <p>{onboardingStatus.isOnboarded ? onboardingStatus.companyName : "Complete your company profile to get started."}</p>
-        </div>
-        <Link to="/post-job" className="btn btn-primary">
-          <FilePlus2 size={16} /> Post a Job
-        </Link>
-      </div>
+      <PageHeader
+        title={`Welcome back${user ? `, ${user.fullName.split(" ")[0]}` : ""}`}
+        subtitle={onboardingStatus.isOnboarded ? onboardingStatus.companyName ?? undefined : "Complete your company profile to get started."}
+        action={<Link to="/post-job" className="btn btn-primary"><FilePlus2 size={16} /> Post a Job</Link>}
+      />
 
       {!onboardingStatus.isOnboarded && (
         <div className="onboarding-banner">

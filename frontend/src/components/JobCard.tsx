@@ -11,10 +11,17 @@ export default function JobCard({
   job,
   compact = false,
   initiallySaved = false,
+  compareChecked,
+  onToggleCompare,
 }: {
   job: JobPosting;
   compact?: boolean;
   initiallySaved?: boolean;
+  /** Undefined hides the compare checkbox entirely — only JobsPage's main results list
+   * passes these, so other JobCard call sites (dashboards, saved jobs, similar jobs) are
+   * unaffected by default. */
+  compareChecked?: boolean;
+  onToggleCompare?: (jobId: number) => void;
 }) {
   const { user } = useAuth();
   const { error: showError } = useToast();
@@ -53,18 +60,31 @@ export default function JobCard({
           </Link>
           <p className="job-card-company">{job.companyName}</p>
         </div>
-        {!compact && user?.role === "Candidate" && (
-          <button
-            type="button"
-            className={`save-btn ${saved ? "save-btn-active" : ""}`}
-            onClick={handleToggleSave}
-            disabled={pending}
-            aria-pressed={saved}
-            aria-label={saved ? "Remove from saved jobs" : "Save job"}
-          >
-            {saved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {onToggleCompare && (
+            <label className="filter-option" style={{ padding: 0 }}>
+              <input
+                type="checkbox"
+                checked={compareChecked ?? false}
+                onChange={() => onToggleCompare(job.id)}
+                aria-label={`Compare ${job.title}`}
+              />
+              Compare
+            </label>
+          )}
+          {!compact && user?.role === "Candidate" && (
+            <button
+              type="button"
+              className={`save-btn ${saved ? "save-btn-active" : ""}`}
+              onClick={handleToggleSave}
+              disabled={pending}
+              aria-pressed={saved}
+              aria-label={saved ? "Remove from saved jobs" : "Save job"}
+            >
+              {saved ? <BookmarkCheck size={17} /> : <Bookmark size={17} />}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="job-card-meta">

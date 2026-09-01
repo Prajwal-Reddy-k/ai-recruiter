@@ -23,6 +23,7 @@ import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 
 const STATUS_OPTIONS: ApplicationStatusValue[] = [
   "Applied", "Screening", "Shortlisted", "InterviewScheduled", "InterviewCompleted", "Offer", "Hired", "Rejected", "Withdrawn",
@@ -178,10 +179,10 @@ export default function CandidateSearchPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1><Users size={24} style={{ verticalAlign: "-4px", marginRight: "0.5rem" }} />Candidate Search</h1>
-        <p>Search everyone who has applied to your company's jobs, or discover candidates open to being invited.</p>
-      </div>
+      <PageHeader
+        title={<><Users size={24} style={{ verticalAlign: "-4px", marginRight: "0.5rem" }} />Candidate Search</>}
+        subtitle="Search everyone who has applied to your company's jobs, or discover candidates open to being invited."
+      />
 
       <div className="admin-tabs" role="tablist" style={{ marginBottom: "1.5rem" }}>
         <button type="button" role="tab" aria-selected={view === "applicants"} className={`admin-tab ${view === "applicants" ? "admin-tab-active" : ""}`} onClick={() => setView("applicants")}>

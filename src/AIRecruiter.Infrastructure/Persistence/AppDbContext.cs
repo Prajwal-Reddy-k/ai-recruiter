@@ -28,6 +28,8 @@ public class AppDbContext : DbContext
     public DbSet<JobAssignment> JobAssignments => Set<JobAssignment>();
     public DbSet<InterviewAssignment> InterviewAssignments => Set<InterviewAssignment>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<Feedback> Feedbacks => Set<Feedback>();
+    public DbSet<NotificationPreference> NotificationPreferences => Set<NotificationPreference>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -298,6 +300,24 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Invitation>()
             .HasIndex(i => new { i.JobPostingId, i.CandidateProfileId, i.Status });
+
+        // --- Feedback / support submissions ---
+        modelBuilder.Entity<Feedback>()
+            .HasOne(f => f.SubmittedByUser)
+            .WithMany()
+            .HasForeignKey(f => f.SubmittedByUserId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // --- Notification preferences (one-to-one, lazily created) ---
+        modelBuilder.Entity<NotificationPreference>()
+            .HasOne(p => p.User)
+            .WithOne()
+            .HasForeignKey<NotificationPreference>(p => p.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<NotificationPreference>()
+            .HasIndex(p => p.UserId)
+            .IsUnique();
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

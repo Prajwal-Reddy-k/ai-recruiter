@@ -62,6 +62,70 @@ public class UserProfileService : IUserProfileService
         return ToDto(user);
     }
 
+    public async Task ChangePasswordAsync(int userId, ChangePasswordRequest request, CancellationToken ct = default)
+    {
+        if (request.NewPassword != request.ConfirmPassword)
+        {
+            throw new ValidationException(
+                "Passwords do not match.",
+                new Dictionary<string, string> { ["confirmPassword"] = "Passwords do not match." });
+        }
+
+        if (request.NewPassword.Length < 8)
+        {
+            throw new ValidationException(
+                "New password must be at least 8 characters.",
+                new Dictionary<string, string> { ["newPassword"] = "New password must be at least 8 characters." });
+        }
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new NotFoundException("User not found.");
+
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+        {
+            throw new ValidationException(
+                "Current password is incorrect.",
+                new Dictionary<string, string> { ["currentPassword"] = "Current password is incorrect." });
+        }
+
+        if (BCrypt.Net.BCrypt.Verify(request.NewPassword, user.PasswordHash))
+        {
+            throw new ValidationException(
+                "New password must be different from your current password.",
+                new Dictionary<string, string> { ["newPassword"] = "New password must be different from your current password." });
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        // Rotating the security stamp invalidates every JWT issued before this moment — same
+        // mechanism as AuthService.ResetPasswordAsync — so other active sessions are signed out.
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(userId, user.Role.ToString(), "PasswordChanged", "User", user.Id, null, ct);
+    }
+
+    public async Task RequestAccountDeletionAsync(int userId, RequestAccountDeletionRequest request, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new NotFoundException("User not found.");
+
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+        {
+            throw new ValidationException(
+                "Incorrect password.",
+                new Dictionary<string, string> { ["password"] = "Incorrect password." });
+        }
+
+        // Deliberately non-destructive: deactivates + logs the account out everywhere via the
+        // same mechanism as AdminService.SuspendUserAsync, rather than erasing data. Reversible
+        // by an Admin via ReactivateUserAsync — there is no automated hard-delete workflow.
+        user.IsActive = false;
+        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(userId, user.Role.ToString(), "AccountDeletionRequested", "User", user.Id, null, ct);
+    }
+
     private static UserDetailsDto ToDto(User user) => new(user.Id, user.FullName, user.Email, user.PhoneNumber, user.Role.ToString());
 
     /// <summary>Strips a leading country code / trunk prefix and formatting characters,

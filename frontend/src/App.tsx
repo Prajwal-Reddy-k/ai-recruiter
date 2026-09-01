@@ -1,10 +1,14 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./context/AuthContext";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ToastProvider } from "./context/ToastContext";
+import { ThemeProvider } from "./context/ThemeContext";
 import NavBar from "./components/NavBar";
 import Footer from "./components/Footer";
 import ToastContainer from "./components/ToastContainer";
-import ProtectedRoute from "./components/ProtectedRoute";
+import ProtectedRoute, { dashboardPathForRole } from "./components/ProtectedRoute";
+import LandingPage from "./pages/LandingPage";
+import HelpSupportPage from "./pages/HelpSupportPage";
+import SettingsPage from "./pages/SettingsPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -40,16 +44,34 @@ import RecruiterTeamPage from "./pages/RecruiterTeamPage";
 import RecruiterReportsPage from "./pages/RecruiterReportsPage";
 import "./App.css";
 
+function HomeRoute() {
+  const { isAuthenticated, user } = useAuth();
+  if (isAuthenticated && user) {
+    return <Navigate to={dashboardPathForRole(user.role)} replace />;
+  }
+  return <LandingPage />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
         <NavBar />
         <ToastContainer />
         <main className="app-content">
           <Routes>
-            <Route path="/" element={<Navigate to="/jobs" replace />} />
+            <Route path="/" element={<HomeRoute />} />
+            <Route path="/help" element={<HelpSupportPage />} />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -265,6 +287,7 @@ export default function App() {
         <Footer />
         </ToastProvider>
       </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

@@ -47,6 +47,11 @@ public class NotificationService : INotificationService
 
     public async Task NotifyAsync(int userId, string type, string message, string? relatedEntityType = null, int? relatedEntityId = null, CancellationToken ct = default)
     {
+        if (!await IsCategoryEnabledAsync(userId, type, ct))
+        {
+            return;
+        }
+
         _db.Notifications.Add(new Notification
         {
             UserId = userId,
@@ -56,5 +61,21 @@ public class NotificationService : INotificationService
             RelatedEntityId = relatedEntityId,
         });
         await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Maps each existing NotifyAsync call site's "type" string to one of the four
+    /// toggleable preference categories. Anything unmapped (e.g. "JobExpired") falls into an
+    /// always-on "System" bucket with no toggle, so account-level notices can never be
+    /// silenced. Purely additive — no call site needed to change.</summary>
+    private async Task<bool> IsCategoryEnabledAsync(int userId, string type, CancellationToken ct)
+    {
+        var prefs = await NotificationPreferenceService.GetOrCreateAsync(_db, userId, ct);
+
+        if (type.StartsWith("Interview", StringComparison.Ordinal)) return prefs.InterviewsEnabled;
+        if (type is "InvitedToApply") return prefs.InvitationsEnabled;
+        if (type.StartsWith("Application", StringComparison.Ordinal)) return prefs.ApplicationsEnabled;
+        if (type is "MessageReceived") return prefs.MessagesEnabled;
+
+        return true;
     }
 }

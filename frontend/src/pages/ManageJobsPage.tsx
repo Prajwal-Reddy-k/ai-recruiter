@@ -10,6 +10,7 @@ import EmptyState from "../components/ui/EmptyState";
 import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 
 const EXPIRING_SOON_WINDOW_DAYS = 3;
 
@@ -180,10 +181,7 @@ export default function ManageJobsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Manage Jobs</h1>
-        <p>Track drafts, published roles, and closed or archived postings in one place.</p>
-      </div>
+      <PageHeader title="Manage Jobs" subtitle="Track drafts, published roles, and closed or archived postings in one place." />
 
       {error && <p className="error" style={{ marginBottom: "1rem" }}>{error}</p>}
 

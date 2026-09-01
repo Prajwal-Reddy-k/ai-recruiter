@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 
-export type ToastKind = "success" | "error";
+export type ToastKind = "success" | "error" | "info";
 
 export interface Toast {
   id: number;
@@ -12,6 +12,7 @@ interface ToastContextValue {
   toasts: Toast[];
   success: (message: string) => void;
   error: (message: string) => void;
+  info: (message: string) => void;
   dismiss: (id: number) => void;
 }
 
@@ -37,9 +38,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
   const success = useCallback((message: string) => push("success", message), [push]);
   const error = useCallback((message: string) => push("error", message), [push]);
+  const info = useCallback((message: string) => push("info", message), [push]);
 
   return (
-    <ToastContext.Provider value={{ toasts, success, error, dismiss }}>{children}</ToastContext.Provider>
+    <ToastContext.Provider value={{ toasts, success, error, info, dismiss }}>{children}</ToastContext.Provider>
   );
 }
 

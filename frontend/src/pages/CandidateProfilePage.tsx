@@ -10,6 +10,7 @@ import AvatarUpload from "../components/AvatarUpload";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
 
 type UploadState = "idle" | "uploading" | "success" | "error";
 
@@ -347,10 +348,7 @@ export default function CandidateProfilePage() {
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      <div className="page-header">
-        <h1>My Candidate Profile</h1>
-        <p>Keep this up to date — it powers job recommendations and your explainable match score.</p>
-      </div>
+      <PageHeader title="My Candidate Profile" subtitle="Keep this up to date — it powers job recommendations and your explainable match score." />
 
       {profile && (
         <Card className="ui-card-padded">

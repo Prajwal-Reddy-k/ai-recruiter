@@ -14,14 +14,17 @@ import {
   type ModerationStatusValue,
   type ReportStatusValue,
 } from "../api/admin";
-import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, Report } from "../types";
+import { getAdminFeedback, setFeedbackStatus, type FeedbackStatusValue } from "../api/feedback";
+import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, FeedbackSubmission, Report } from "../types";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
 import { Badge, StatusBadge, type BadgeTone } from "../components/ui/Badge";
 import Modal from "../components/ui/Modal";
 import FormField from "../components/ui/FormField";
+import PageHeader from "../components/ui/PageHeader";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 
-type Tab = "users" | "companies" | "jobs" | "reports" | "audit";
+type Tab = "users" | "companies" | "jobs" | "reports" | "feedback" | "audit";
 
 const REPORT_STATUS_TONES: Record<string, BadgeTone> = {
   Open: "warning",
@@ -30,11 +33,18 @@ const REPORT_STATUS_TONES: Record<string, BadgeTone> = {
   Dismissed: "neutral",
 };
 
+const FEEDBACK_STATUS_TONES: Record<string, BadgeTone> = {
+  New: "warning",
+  InProgress: "info",
+  Resolved: "success",
+};
+
 const TABS: { key: Tab; label: string }[] = [
   { key: "users", label: "Users" },
   { key: "companies", label: "Companies" },
   { key: "jobs", label: "Jobs" },
   { key: "reports", label: "Reports" },
+  { key: "feedback", label: "Feedback" },
   { key: "audit", label: "Audit Log" },
 ];
 
@@ -45,6 +55,7 @@ export default function AdminPage() {
   const [companies, setCompanies] = useState<AdminCompany[]>([]);
   const [jobs, setJobs] = useState<AdminJob[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [feedback, setFeedback] = useState<FeedbackSubmission[]>([]);
   const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +72,7 @@ export default function AdminPage() {
       tab === "companies" ? getAdminCompanies().then(setCompanies) :
       tab === "jobs" ? getAdminJobs().then(setJobs) :
       tab === "reports" ? getAdminReports().then(setReports) :
+      tab === "feedback" ? getAdminFeedback().then(setFeedback) :
       getAuditLog().then(setAuditLog);
 
     load
@@ -123,6 +135,16 @@ export default function AdminPage() {
     }
   }
 
+  async function handleSetFeedbackStatus(id: number, status: FeedbackStatusValue) {
+    try {
+      await setFeedbackStatus(id, status);
+      setFeedback((prev) => prev.map((f) => (f.id === id ? { ...f, status } : f)));
+      toast.success(`Feedback marked ${status === "InProgress" ? "in progress" : status.toLowerCase()}.`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update feedback status"));
+    }
+  }
+
   async function handleReactivate(user: AdminUser) {
     try {
       await reactivateUser(user.id);
@@ -135,10 +157,10 @@ export default function AdminPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1><ShieldCheck size={26} style={{ verticalAlign: "-4px", marginRight: "0.5rem" }} />Admin</h1>
-        <p>Manage users, companies, job moderation, reports, and the audit trail.</p>
-      </div>
+      <PageHeader
+        title={<><ShieldCheck size={26} style={{ verticalAlign: "-4px", marginRight: "0.5rem" }} />Admin</>}
+        subtitle="Manage users, companies, job moderation, reports, feedback, and the audit trail."
+      />
 
       <div className="admin-tabs" role="tablist">
         {TABS.map((t) => (
@@ -261,6 +283,31 @@ export default function AdminPage() {
             </table>
           )}
 
+          {tab === "feedback" && (
+            <table className="dashboard-table">
+              <thead><tr><th>From</th><th>Category</th><th>Message</th><th>Status</th><th>Submitted</th><th>Actions</th></tr></thead>
+              <tbody>
+                {feedback.map((f) => (
+                  <tr key={f.id}>
+                    <td>{f.name} {f.submittedByName && <span className="hint">({f.submittedByName})</span>}<br /><span className="hint">{f.email}</span></td>
+                    <td>{f.category}</td>
+                    <td style={{ maxWidth: 320 }}>{f.message}</td>
+                    <td><Badge tone={FEEDBACK_STATUS_TONES[f.status] ?? "neutral"}>{f.status}</Badge></td>
+                    <td>{new Date(f.createdAt).toLocaleDateString()}</td>
+                    <td style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                      {f.status !== "InProgress" && (
+                        <button type="button" className="link-button" onClick={() => handleSetFeedbackStatus(f.id, "InProgress")}>In progress</button>
+                      )}
+                      {f.status !== "Resolved" && (
+                        <button type="button" className="link-button" onClick={() => handleSetFeedbackStatus(f.id, "Resolved")}>Resolve</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
           {tab === "audit" && (
             <table className="dashboard-table">
               <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Entity</th></tr></thead>
@@ -279,22 +326,19 @@ export default function AdminPage() {
         </div>
       )}
 
-      <Modal
+      <ConfirmDialog
         open={suspendTarget !== null}
-        onClose={() => setSuspendTarget(null)}
+        onCancel={() => setSuspendTarget(null)}
+        onConfirm={handleSuspendConfirm}
         title="Suspend user"
-        footer={
-          <>
-            <button type="button" className="btn btn-secondary" onClick={() => setSuspendTarget(null)}>Cancel</button>
-            <button type="button" className="btn btn-danger" onClick={handleSuspendConfirm}>Suspend</button>
-          </>
-        }
+        confirmLabel="Suspend"
+        danger
       >
         <p>
           Suspend <strong>{suspendTarget?.fullName}</strong>? They will be immediately signed out and unable to log in
           or use the platform until reactivated.
         </p>
-      </Modal>
+      </ConfirmDialog>
 
       <Modal
         open={noteTarget !== null}

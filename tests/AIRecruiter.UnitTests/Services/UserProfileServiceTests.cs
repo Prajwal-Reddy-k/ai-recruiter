@@ -98,4 +98,107 @@ public class UserProfileServiceTests
 
         await Assert.ThrowsAsync<NotFoundException>(() => sut.GetMyDetailsAsync(9999));
     }
+
+    private static async Task<User> SeedWithPasswordAsync(AppDbContext db, string password)
+    {
+        var user = new User { FullName = "Neymar", Email = "messi10@example.com", Role = UserRole.Recruiter, PasswordHash = BCrypt.Net.BCrypt.HashPassword(password) };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        return user;
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_CorrectCurrentPassword_UpdatesHashAndRotatesStamp()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "OldPassw0rd!");
+        var originalStamp = user.SecurityStamp;
+        var sut = CreateSut(db);
+
+        await sut.ChangePasswordAsync(user.Id, new ChangePasswordRequest("OldPassw0rd!", "NewPassw0rd!", "NewPassw0rd!"));
+
+        var reloaded = db.Users.First(u => u.Id == user.Id);
+        Assert.True(BCrypt.Net.BCrypt.Verify("NewPassw0rd!", reloaded.PasswordHash));
+        Assert.NotEqual(originalStamp, reloaded.SecurityStamp);
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_WrongCurrentPassword_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "OldPassw0rd!");
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => sut.ChangePasswordAsync(user.Id, new ChangePasswordRequest("WrongPassword!", "NewPassw0rd!", "NewPassw0rd!")));
+
+        Assert.True(ex.FieldErrors!.ContainsKey("currentPassword"));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_MismatchedConfirm_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "OldPassw0rd!");
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => sut.ChangePasswordAsync(user.Id, new ChangePasswordRequest("OldPassw0rd!", "NewPassw0rd!", "Different1!")));
+
+        Assert.True(ex.FieldErrors!.ContainsKey("confirmPassword"));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_TooShort_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "OldPassw0rd!");
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => sut.ChangePasswordAsync(user.Id, new ChangePasswordRequest("OldPassw0rd!", "Sh0rt!", "Sh0rt!")));
+
+        Assert.True(ex.FieldErrors!.ContainsKey("newPassword"));
+    }
+
+    [Fact]
+    public async Task ChangePasswordAsync_SameAsCurrentPassword_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "OldPassw0rd!");
+        var sut = CreateSut(db);
+
+        var ex = await Assert.ThrowsAsync<ValidationException>(
+            () => sut.ChangePasswordAsync(user.Id, new ChangePasswordRequest("OldPassw0rd!", "OldPassw0rd!", "OldPassw0rd!")));
+
+        Assert.True(ex.FieldErrors!.ContainsKey("newPassword"));
+    }
+
+    [Fact]
+    public async Task RequestAccountDeletionAsync_CorrectPassword_DeactivatesAndRotatesStamp()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "MyPassw0rd!");
+        var originalStamp = user.SecurityStamp;
+        var sut = CreateSut(db);
+
+        await sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("MyPassw0rd!"));
+
+        var reloaded = db.Users.First(u => u.Id == user.Id);
+        Assert.False(reloaded.IsActive);
+        Assert.NotEqual(originalStamp, reloaded.SecurityStamp);
+    }
+
+    [Fact]
+    public async Task RequestAccountDeletionAsync_WrongPassword_ThrowsValidationAndDoesNotDeactivate()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "MyPassw0rd!");
+        var sut = CreateSut(db);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("WrongPassword!")));
+
+        Assert.True(db.Users.First(u => u.Id == user.Id).IsActive);
+    }
 }

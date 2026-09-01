@@ -4,7 +4,7 @@ import { daysAgo } from "./format";
 export type WorkMode = "all" | "remote" | "onsite";
 export type ExperienceBucket = "0-2" | "3-5" | "6-10" | "10+";
 export type DatePostedFilter = "any" | "24h" | "week" | "month";
-export type SortKey = "newest" | "salary-high";
+export type SortKey = "newest" | "salary-high" | "relevance" | "experience-low";
 
 export interface JobFilters {
   workMode: WorkMode;
@@ -94,10 +94,30 @@ export function filterJobs(jobs: JobPosting[], filters: JobFilters): JobPosting[
   });
 }
 
-export function sortJobs(jobs: JobPosting[], sortKey: SortKey): JobPosting[] {
+/** Simple substring-weighted relevance score against a free-text query — title matches count
+ * more than a skill match, same weighting style as findSimilarJobs below. */
+export function scoreRelevance(job: JobPosting, query: string): number {
+  const q = query.trim().toLowerCase();
+  if (!q) return 0;
+
+  let score = 0;
+  if (job.title.toLowerCase().includes(q)) score += 3;
+  if (job.title.toLowerCase().startsWith(q)) score += 2;
+  if (jobSkills(job).some((s) => s.toLowerCase().includes(q))) score += 2;
+  if ((job.companyName ?? "").toLowerCase().includes(q)) score += 1;
+  return score;
+}
+
+export function sortJobs(jobs: JobPosting[], sortKey: SortKey, relevanceQuery = ""): JobPosting[] {
   const copy = [...jobs];
   if (sortKey === "salary-high") {
     return copy.sort((a, b) => (b.maxSalary ?? b.minSalary ?? 0) - (a.maxSalary ?? a.minSalary ?? 0));
+  }
+  if (sortKey === "experience-low") {
+    return copy.sort((a, b) => (a.minExperienceYears ?? 0) - (b.minExperienceYears ?? 0));
+  }
+  if (sortKey === "relevance" && relevanceQuery.trim()) {
+    return copy.sort((a, b) => scoreRelevance(b, relevanceQuery) - scoreRelevance(a, relevanceQuery));
   }
   return copy.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

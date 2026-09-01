@@ -1,23 +1,7 @@
 import { Link } from "react-router-dom";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-
-const POPULAR_ROLES = [
-  "Software Developer",
-  "Java Developer",
-  ".NET Developer",
-  "React Developer",
-  "Full Stack Developer",
-  "Data Analyst",
-  "Data Scientist",
-  "UI/UX Designer",
-  "Digital Marketing Executive",
-  "HR Executive",
-];
-
-function roleSearchPath(role: string): string {
-  return `/jobs?q=${encodeURIComponent(role)}`;
-}
+import { POPULAR_ROLES, roleSearchPath } from "../utils/popularRoles";
 
 export default function Footer() {
   const { user } = useAuth();
@@ -85,6 +69,7 @@ export default function Footer() {
             <span className="app-footer-contact-item">
               <MapPin size={14} aria-hidden="true" /> Bengaluru, Karnataka, India
             </span>
+            <Link to="/help" style={{ marginTop: "0.5rem", display: "inline-block" }}>Help & Support</Link>
           </div>
         </div>
       </div>
@@ -92,6 +77,7 @@ export default function Footer() {
       <div className="app-footer-bottom">
         <span>© 2026 AI Recruiter. Portfolio demonstration project.</span>
         <div className="app-footer-bottom-links">
+          <Link to="/help">Help</Link>
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms</Link>
         </div>

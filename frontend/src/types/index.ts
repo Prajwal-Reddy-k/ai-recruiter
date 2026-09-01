@@ -739,3 +739,50 @@ export interface RecruiterReport {
   offersMade: number;
   hires: number;
 }
+
+// --- Feedback / Help & Support ---
+
+export interface FeedbackSubmission {
+  id: number;
+  name: string;
+  email: string;
+  category: string;
+  message: string;
+  status: string;
+  submittedByName: string | null;
+  createdAt: string;
+}
+
+export interface SubmitFeedbackRequest {
+  name: string;
+  email: string;
+  category: string;
+  message: string;
+}
+
+// --- Account settings ---
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface RequestAccountDeletionRequest {
+  password: string;
+}
+
+export interface NotificationPreferences {
+  messagesEnabled: boolean;
+  applicationsEnabled: boolean;
+  interviewsEnabled: boolean;
+  invitationsEnabled: boolean;
+}
+
+// --- Platform stats (public landing page) ---
+
+export interface PlatformStats {
+  openJobCount: number;
+  candidateCount: number;
+  companyCount: number;
+}
