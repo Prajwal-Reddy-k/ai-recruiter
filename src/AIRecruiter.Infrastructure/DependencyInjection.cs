@@ -63,6 +63,7 @@ public static class DependencyInjection
         services.AddScoped<ITeamService, TeamService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<IInvitationService, InvitationService>();
+        services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddHostedService<JobLifecycleSweepService>();
 
         // Email: a real SMTP account (any provider) if fully configured; otherwise a

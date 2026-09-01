@@ -101,6 +101,19 @@ export interface UpsertOnboardingRequest {
   twitterUrl?: string;
 }
 
+export interface UserDetails {
+  userId: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string | null;
+  role: string;
+}
+
+export interface UpdateUserDetailsRequest {
+  fullName: string;
+  phoneNumber?: string;
+}
+
 export interface CompanyProfile {
   id: number;
   name: string;

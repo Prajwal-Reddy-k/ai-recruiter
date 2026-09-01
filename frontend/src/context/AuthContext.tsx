@@ -14,6 +14,7 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   setSession: (auth: AuthResponse) => void;
   updateAvatarUrl: (avatarUrl: string | null) => void;
+  updateFullName: (fullName: string) => void;
   logout: () => void;
 }
 
@@ -54,6 +55,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }
 
+  function updateFullName(fullName: string) {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, fullName };
+      localStorage.setItem("user", JSON.stringify(next));
+      return next;
+    });
+  }
+
   function logout() {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
@@ -61,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, setSession, updateAvatarUrl, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, setSession, updateAvatarUrl, updateFullName, logout }}>
       {children}
     </AuthContext.Provider>
   );
