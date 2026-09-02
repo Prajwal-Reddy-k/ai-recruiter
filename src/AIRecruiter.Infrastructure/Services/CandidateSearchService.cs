@@ -1,5 +1,6 @@
 using System.Text;
 using AIRecruiter.Application.Common;
+using AIRecruiter.Application.DTOs.Assessments;
 using AIRecruiter.Application.DTOs.Candidates;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
@@ -71,6 +72,12 @@ public class CandidateSearchService : ICandidateSearchService
             throw new NotFoundException("Candidate not found.");
         }
 
+        var assessmentBadges = await _db.SkillAssessmentAttempts
+            .Where(a => a.CandidateProfileId == candidateProfileId && a.IsVisibleToRecruiters && a.Status == AssessmentAttemptStatus.Completed)
+            .OrderByDescending(a => a.PercentageScore)
+            .Select(a => new RecruiterVisibleBadgeDto(a.Category.ToString(), a.PercentageScore!.Value, a.SubmittedAt!.Value))
+            .ToListAsync(ct);
+
         var appDtos = applications.Select(a => new CandidateApplicationSummaryDto(
             a.Id,
             a.JobPostingId,
@@ -103,7 +110,8 @@ public class CandidateSearchService : ICandidateSearchService
             candidate.ResumeEducations.OrderBy(e => e.DisplayOrder).Select(e => new EducationEntryDto(e.Id, e.Institution, e.Degree, e.FieldOfStudy, e.StartDate, e.EndDate, e.GradeOrGpa, e.Description, e.DisplayOrder)).ToList(),
             candidate.Certifications.OrderBy(e => e.DisplayOrder).Select(e => new CertificationDto(e.Id, e.Name, e.IssuingOrganization, e.IssueDate, e.ExpiryDate, e.CredentialUrl, e.DisplayOrder)).ToList(),
             candidate.Projects.OrderBy(e => e.DisplayOrder).Select(e => new ProjectDto(e.Id, e.Title, e.Description, e.ProjectUrl, e.TechnologiesCsv, e.DisplayOrder)).ToList(),
-            candidate.AchievementsText);
+            candidate.AchievementsText,
+            assessmentBadges);
     }
 
     public async Task<string> ExportCsvAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default)
@@ -160,7 +168,7 @@ public class CandidateSearchService : ICandidateSearchService
     {
         var candidates = _db.CandidateProfiles
             .Include(c => c.User)
-            .Where(c => c.ProfileVisibility == ProfileVisibility.VisibleToRecruiters)
+            .Where(c => c.ProfileVisibility == ProfileVisibility.VisibleToRecruiters || c.ProfileVisibility == ProfileVisibility.PublicShareable)
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(query.City))

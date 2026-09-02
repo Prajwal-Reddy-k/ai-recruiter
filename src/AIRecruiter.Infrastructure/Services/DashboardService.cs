@@ -1,4 +1,5 @@
 using AIRecruiter.Application.DTOs.Applications;
+using AIRecruiter.Application.DTOs.Assessments;
 using AIRecruiter.Application.DTOs.Candidates;
 using AIRecruiter.Application.DTOs.Dashboard;
 using AIRecruiter.Application.Interfaces;
@@ -19,14 +20,18 @@ public class DashboardService : IDashboardService
     private readonly ISavedJobService _savedJobService;
     private readonly IInterviewService _interviewService;
     private readonly IJobAlertService _jobAlertService;
+    private readonly ICareerGoalService _careerGoalService;
 
-    public DashboardService(AppDbContext db, IRecruiterOnboardingService onboardingService, ISavedJobService savedJobService, IInterviewService interviewService, IJobAlertService jobAlertService)
+    public DashboardService(
+        AppDbContext db, IRecruiterOnboardingService onboardingService, ISavedJobService savedJobService,
+        IInterviewService interviewService, IJobAlertService jobAlertService, ICareerGoalService careerGoalService)
     {
         _db = db;
         _onboardingService = onboardingService;
         _savedJobService = savedJobService;
         _interviewService = interviewService;
         _jobAlertService = jobAlertService;
+        _careerGoalService = careerGoalService;
     }
 
     public async Task<CandidateDashboardDto> GetCandidateDashboardAsync(int userId, CancellationToken ct = default)
@@ -102,6 +107,16 @@ public class DashboardService : IDashboardService
         var strength = ProfileStrengthCalculator.Calculate(BuildStrengthInput(profile));
         var nextBestActions = BuildNextBestActions(strength, recommended.Count > 0, upcomingInterviews, pendingInvitationCount);
 
+        var recentAssessmentResults = await _db.SkillAssessmentAttempts
+            .Where(a => a.CandidateProfileId == profile.Id && a.Status == AssessmentAttemptStatus.Completed)
+            .OrderByDescending(a => a.SubmittedAt)
+            .Take(3)
+            .Select(a => new AssessmentAttemptHistoryItemDto(
+                a.Id, a.Category.ToString(), a.ScoreCorrectCount!.Value, a.TotalQuestionCount!.Value, a.PercentageScore!.Value, a.SubmittedAt!.Value, a.IsVisibleToRecruiters))
+            .ToListAsync(ct);
+
+        var careerGoalsSummary = await _careerGoalService.GetMyGoalsAsync(userId, statusFilter: null, ct);
+
         return new CandidateDashboardDto(
             strength.Score,
             summary,
@@ -113,7 +128,9 @@ public class DashboardService : IDashboardService
             alertCount,
             alertMatches,
             upcomingInterviews,
-            nextBestActions);
+            nextBestActions,
+            recentAssessmentResults,
+            careerGoalsSummary);
     }
 
     /// <summary>Skill-overlap count (the original, still-dominant scoring signal) plus a

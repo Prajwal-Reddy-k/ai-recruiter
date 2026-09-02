@@ -10,6 +10,11 @@ import LandingPage from "./pages/LandingPage";
 import HelpSupportPage from "./pages/HelpSupportPage";
 import SettingsPage from "./pages/SettingsPage";
 import ResumeBuilderPage from "./pages/ResumeBuilderPage";
+import CoverLetterTemplatesPage from "./pages/CoverLetterTemplatesPage";
+import SkillAssessmentsPage from "./pages/SkillAssessmentsPage";
+import AssessmentAttemptPage from "./pages/AssessmentAttemptPage";
+import CareerGoalsPage from "./pages/CareerGoalsPage";
+import PublicTalentProfilePage from "./pages/PublicTalentProfilePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
@@ -83,6 +88,7 @@ export default function App() {
             <Route path="/terms" element={<PlaceholderInfoPage title="Terms of Service" />} />
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/companies/:id" element={<CompanyProfilePage />} />
+            <Route path="/talent/:slug" element={<PublicTalentProfilePage />} />
             <Route
               path="/post-job"
               element={
@@ -160,6 +166,38 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Candidate"]}>
                   <ResumeBuilderPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cover-letter-templates"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <CoverLetterTemplatesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/assessments"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <SkillAssessmentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/assessments/attempt/:attemptId"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <AssessmentAttemptPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/career-goals"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate"]}>
+                  <CareerGoalsPage />
                 </ProtectedRoute>
               }
             />

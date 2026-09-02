@@ -8,6 +8,7 @@ import { saveBlobAsFile } from "../utils/download";
 import { useToast } from "../context/ToastContext";
 import IndiaLocationSelector from "../components/IndiaLocationSelector";
 import AvatarUpload from "../components/AvatarUpload";
+import PublicProfileShareCard from "../components/PublicProfileShareCard";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
@@ -44,6 +45,7 @@ const VISIBILITY_OPTIONS = [
   { value: "VisibleToRecruiters", label: "Visible to recruiters (discoverable, even before applying)" },
   { value: "VisibleAfterApplying", label: "Visible only after applying (default)" },
   { value: "Private", label: "Private (never shown to recruiters)" },
+  { value: "PublicShareable", label: "Public shareable (anyone with the link — plus visible to recruiters)" },
 ];
 
 const MAX_SKILLS = 30;
@@ -617,6 +619,8 @@ export default function CandidateProfilePage() {
             </FormField>
           </div>
 
+          {profileVisibility === "PublicShareable" && <PublicProfileShareCard />}
+
           {fieldErrors.general && <p className="error" style={{ marginBottom: "1rem" }}>{fieldErrors.general}</p>}
 
           <div className="form-actions">
@@ -659,6 +663,30 @@ export default function CandidateProfilePage() {
           Create a structured, downloadable resume from your profile — separate from the uploaded file above.
         </p>
         <Link to="/resume-builder" className="btn btn-secondary btn-sm">Open Resume Builder</Link>
+      </Card>
+
+      <Card className="ui-card-padded">
+        <h2><FileText size={18} /> Cover letter templates</h2>
+        <p className="hint" style={{ marginBottom: "0.75rem" }}>
+          Build reusable cover-letter templates to personalize when you apply to jobs.
+        </p>
+        <Link to="/cover-letter-templates" className="btn btn-secondary btn-sm">Open Cover Letter Templates</Link>
+      </Card>
+
+      <Card className="ui-card-padded">
+        <h2><FileText size={18} /> Skill assessments</h2>
+        <p className="hint" style={{ marginBottom: "0.75rem" }}>
+          Take short, timed assessments to showcase your skills — optionally visible to recruiters.
+        </p>
+        <Link to="/assessments" className="btn btn-secondary btn-sm">Open Skill Assessments</Link>
+      </Card>
+
+      <Card className="ui-card-padded">
+        <h2><FileText size={18} /> Career goals</h2>
+        <p className="hint" style={{ marginBottom: "0.75rem" }}>
+          Set career goals and track your progress toward them.
+        </p>
+        <Link to="/career-goals" className="btn btn-secondary btn-sm">Open Career Goals</Link>
       </Card>
     </div>
   );

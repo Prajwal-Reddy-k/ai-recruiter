@@ -78,6 +78,20 @@ public class JobApplicationServiceTests
     }
 
     [Fact]
+    public async Task ApplyAsync_CoverNoteExceedsMaxLength_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, _, job, _) = await SeedAsync(db);
+        var sut = CreateSut(db);
+
+        var tooLong = new string('a', 4001);
+        var ex = await Assert.ThrowsAsync<ValidationException>(() =>
+            sut.ApplyAsync(candidate.Id, job.Id, tooLong));
+
+        Assert.True(ex.FieldErrors!.ContainsKey("coverNote"));
+    }
+
+    [Fact]
     public async Task ApplyAsync_NoResumeOnFile_AppliesWithoutScore()
     {
         using var db = TestDbContextFactory.Create();

@@ -48,4 +48,12 @@ public static class TestServiceFactory
     public static JobAlertService CreateJobAlerts(AppDbContext db) => new(db);
 
     public static InMemoryViewDeduplicationService CreateViewDedup() => new();
+
+    public static CoverLetterTemplateService CreateCoverLetterTemplateService(AppDbContext db) => new(db);
+
+    public static SkillAssessmentService CreateSkillAssessmentService(AppDbContext db) => new(db);
+
+    public static PublicProfileService CreatePublicProfileService(AppDbContext db) => new(db);
+
+    public static CareerGoalService CreateCareerGoalService(AppDbContext db) => new(db, CreateLocationValidator());
 }

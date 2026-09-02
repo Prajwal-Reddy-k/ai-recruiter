@@ -296,6 +296,9 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Property<int>("ProfileVisibility")
                         .HasColumnType("int");
 
+                    b.Property<string>("PublicProfileSlug")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<bool?>("RemotePreference")
                         .HasColumnType("bit");
 
@@ -336,6 +339,10 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PublicProfileSlug")
+                        .IsUnique()
+                        .HasFilter("[PublicProfileSlug] IS NOT NULL");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -430,6 +437,60 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.ToTable("CandidateWorkExperiences");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CareerGoal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsLocationRemote")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreferredCity")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PreferredState")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProgressPercent")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TargetCompanyType")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("TargetCompletionDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TargetRole")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TargetSkill")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateProfileId");
+
+                    b.ToTable("CareerGoals");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Company", b =>
                 {
                     b.Property<int>("Id")
@@ -484,6 +545,46 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CoverLetterTemplate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ClosingMessage")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Introduction")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProjectAchievements")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SkillsHighlights")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateProfileId");
+
+                    b.ToTable("CoverLetterTemplates");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Feedback", b =>
@@ -1343,6 +1444,143 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.ToTable("SavedJobs");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentAnswer", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SelectedOptionIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SkillAssessmentAttemptId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SkillAssessmentQuestionId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SkillAssessmentAttemptId");
+
+                    b.HasIndex("SkillAssessmentQuestionId");
+
+                    b.ToTable("SkillAssessmentAnswers");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsVisibleToRecruiters")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal?>("PercentageScore")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ScoreCorrectCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("TotalQuestionCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CandidateProfileId");
+
+                    b.ToTable("SkillAssessmentAttempts");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Category")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CorrectOptionIndex")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Explanation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OptionA")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OptionB")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OptionC")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OptionD")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("QuestionText")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Category");
+
+                    b.ToTable("SkillAssessmentQuestions");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.User", b =>
                 {
                     b.Property<int>("Id")
@@ -1467,6 +1705,28 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
                         .WithMany("WorkExperiences")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CandidateProfile");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CareerGoal", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("CareerGoals")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CandidateProfile");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CoverLetterTemplate", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("CoverLetterTemplates")
                         .HasForeignKey("CandidateProfileId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1798,11 +2058,47 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("JobPosting");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentAnswer", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.SkillAssessmentAttempt", "Attempt")
+                        .WithMany("Answers")
+                        .HasForeignKey("SkillAssessmentAttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIRecruiter.Domain.Entities.SkillAssessmentQuestion", "Question")
+                        .WithMany()
+                        .HasForeignKey("SkillAssessmentQuestionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Attempt");
+
+                    b.Navigation("Question");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentAttempt", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("AssessmentAttempts")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CandidateProfile");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.CandidateProfile", b =>
                 {
                     b.Navigation("Applications");
 
+                    b.Navigation("AssessmentAttempts");
+
+                    b.Navigation("CareerGoals");
+
                     b.Navigation("Certifications");
+
+                    b.Navigation("CoverLetterTemplates");
 
                     b.Navigation("JobAlerts");
 
@@ -1863,6 +2159,11 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("JobAssignments");
 
                     b.Navigation("JobPostings");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.SkillAssessmentAttempt", b =>
+                {
+                    b.Navigation("Answers");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.User", b =>

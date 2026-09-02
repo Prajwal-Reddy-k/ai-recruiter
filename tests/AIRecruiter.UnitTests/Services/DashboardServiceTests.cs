@@ -16,7 +16,8 @@ public class DashboardServiceTests
         var savedJobs = TestServiceFactory.CreateSavedJobs(db);
         var interviews = new InterviewService(db, notifications, auditLog);
         var jobAlerts = TestServiceFactory.CreateJobAlerts(db);
-        return new DashboardService(db, onboarding, savedJobs, interviews, jobAlerts);
+        var careerGoals = new CareerGoalService(db, TestServiceFactory.CreateLocationValidator());
+        return new DashboardService(db, onboarding, savedJobs, interviews, jobAlerts, careerGoals);
     }
 
     [Fact]
@@ -33,6 +34,45 @@ public class DashboardServiceTests
         var dashboard = await sut.GetCandidateDashboardAsync(user.Id);
 
         Assert.Equal(0, dashboard.ProfileCompletionPercent);
+    }
+
+    [Fact]
+    public async Task GetCandidateDashboardAsync_IncludesRecentAssessmentResultsAndCareerGoalsSummary()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = new User { FullName = "Casey Candidate", Email = "casey-goals@example.com", Role = UserRole.Candidate };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var profile = new CandidateProfile { UserId = user.Id };
+        db.CandidateProfiles.Add(profile);
+        await db.SaveChangesAsync();
+
+        db.SkillAssessmentAttempts.Add(new SkillAssessmentAttempt
+        {
+            CandidateProfileId = profile.Id,
+            Category = AssessmentCategory.Java,
+            Status = AssessmentAttemptStatus.Completed,
+            ExpiresAt = DateTime.UtcNow,
+            SubmittedAt = DateTime.UtcNow,
+            ScoreCorrectCount = 10,
+            TotalQuestionCount = 15,
+            PercentageScore = 66.7m,
+        });
+        db.CareerGoals.Add(new CareerGoal
+        {
+            CandidateProfileId = profile.Id,
+            TargetRole = "Senior Backend Engineer",
+            Status = CareerGoalStatus.InProgress,
+        });
+        await db.SaveChangesAsync();
+
+        var sut = CreateSut(db);
+        var dashboard = await sut.GetCandidateDashboardAsync(user.Id);
+
+        Assert.Single(dashboard.RecentAssessmentResults);
+        Assert.Equal("Java", dashboard.RecentAssessmentResults[0].Category);
+        Assert.Single(dashboard.CareerGoalsSummary.Goals);
+        Assert.Equal("Senior Backend Engineer", dashboard.CareerGoalsSummary.Goals[0].TargetRole);
     }
 
     [Fact]

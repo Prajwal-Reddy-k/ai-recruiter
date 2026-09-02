@@ -34,6 +34,11 @@ public class AppDbContext : DbContext
     public DbSet<CandidateEducation> CandidateEducations => Set<CandidateEducation>();
     public DbSet<CandidateCertification> CandidateCertifications => Set<CandidateCertification>();
     public DbSet<CandidateProject> CandidateProjects => Set<CandidateProject>();
+    public DbSet<CoverLetterTemplate> CoverLetterTemplates => Set<CoverLetterTemplate>();
+    public DbSet<SkillAssessmentQuestion> SkillAssessmentQuestions => Set<SkillAssessmentQuestion>();
+    public DbSet<SkillAssessmentAttempt> SkillAssessmentAttempts => Set<SkillAssessmentAttempt>();
+    public DbSet<SkillAssessmentAnswer> SkillAssessmentAnswers => Set<SkillAssessmentAnswer>();
+    public DbSet<CareerGoal> CareerGoals => Set<CareerGoal>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -346,6 +351,47 @@ public class AppDbContext : DbContext
             .HasOne(e => e.CandidateProfile)
             .WithMany(c => c.Projects)
             .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CandidateProfile>()
+            .HasIndex(c => c.PublicProfileSlug)
+            .IsUnique()
+            .HasFilter("[PublicProfileSlug] IS NOT NULL");
+
+        // --- Cover letter templates (cascade-deleted with the owning candidate profile) ---
+        modelBuilder.Entity<CoverLetterTemplate>()
+            .HasOne(e => e.CandidateProfile)
+            .WithMany(c => c.CoverLetterTemplates)
+            .HasForeignKey(e => e.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // --- Skill assessments ---
+        modelBuilder.Entity<SkillAssessmentQuestion>()
+            .HasIndex(q => q.Category);
+
+        modelBuilder.Entity<SkillAssessmentAttempt>()
+            .HasOne(a => a.CandidateProfile)
+            .WithMany(c => c.AssessmentAttempts)
+            .HasForeignKey(a => a.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SkillAssessmentAnswer>()
+            .HasOne(a => a.Attempt)
+            .WithMany(a => a.Answers)
+            .HasForeignKey(a => a.SkillAssessmentAttemptId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<SkillAssessmentAnswer>()
+            .HasOne(a => a.Question)
+            .WithMany()
+            .HasForeignKey(a => a.SkillAssessmentQuestionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Career goals (cascade-deleted with the owning candidate profile) ---
+        modelBuilder.Entity<CareerGoal>()
+            .HasOne(g => g.CandidateProfile)
+            .WithMany(c => c.CareerGoals)
+            .HasForeignKey(g => g.CandidateProfileId)
             .OnDelete(DeleteBehavior.Cascade);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

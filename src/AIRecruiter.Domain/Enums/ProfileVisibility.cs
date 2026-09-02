@@ -12,5 +12,9 @@ public enum ProfileVisibility
     VisibleAfterApplying = 2,
 
     /// <summary>Never surfaced to recruiters outside their own application detail view.</summary>
-    Private = 3
+    Private = 3,
+
+    /// <summary>Discoverable by any recruiter (same as VisibleToRecruiters) AND has a working
+    /// public, unauthenticated "/talent/{slug}" portfolio page anyone with the link can view.</summary>
+    PublicShareable = 4
 }

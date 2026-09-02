@@ -61,6 +61,11 @@ public class CandidateProfile : BaseEntity
     /// existing SkillsCsv convention) is used instead of a fifth child table.</summary>
     public string? AchievementsText { get; set; }
 
+    /// <summary>Set once, the first time ProfileVisibility transitions to PublicShareable, and
+    /// never regenerated afterward — so toggling visibility off and back on keeps the same
+    /// public link working. Null until first enabled.</summary>
+    public string? PublicProfileSlug { get; set; }
+
     public ICollection<JobApplication> Applications { get; set; } = new List<JobApplication>();
     public ICollection<SavedJob> SavedJobs { get; set; } = new List<SavedJob>();
     public ICollection<JobAlert> JobAlerts { get; set; } = new List<JobAlert>();
@@ -68,4 +73,7 @@ public class CandidateProfile : BaseEntity
     public ICollection<CandidateEducation> ResumeEducations { get; set; } = new List<CandidateEducation>();
     public ICollection<CandidateCertification> Certifications { get; set; } = new List<CandidateCertification>();
     public ICollection<CandidateProject> Projects { get; set; } = new List<CandidateProject>();
+    public ICollection<CoverLetterTemplate> CoverLetterTemplates { get; set; } = new List<CoverLetterTemplate>();
+    public ICollection<SkillAssessmentAttempt> AssessmentAttempts { get; set; } = new List<SkillAssessmentAttempt>();
+    public ICollection<CareerGoal> CareerGoals { get; set; } = new List<CareerGoal>();
 }

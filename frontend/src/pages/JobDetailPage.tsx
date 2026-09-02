@@ -5,12 +5,15 @@ import { getJobById, getOpenJobs, reportJob } from "../api/jobs";
 import { REPORT_REASON_LABELS, type ReportReasonValue } from "../api/moderationReports";
 import { applyToJob } from "../api/applications";
 import { getSavedJobs, saveJob, unsaveJob } from "../api/savedJobs";
-import type { JobPosting } from "../types";
+import { getMyCoverLetterTemplates } from "../api/coverLetterTemplates";
+import { getMyCandidateProfile } from "../api/candidates";
+import type { CandidateProfile, CoverLetterTemplate, JobPosting } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../utils/errors";
 import { formatExperienceRange, formatRelativeTime, formatSalaryRange } from "../utils/format";
 import { findSimilarJobs } from "../utils/jobFilters";
+import { buildCoverLetterDraft } from "../utils/coverLetterMerge";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
@@ -35,6 +38,12 @@ export default function JobDetailPage() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savePending, setSavePending] = useState(false);
+
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [templates, setTemplates] = useState<CoverLetterTemplate[]>([]);
+  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
+  const [coverLetterText, setCoverLetterText] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -73,13 +82,35 @@ export default function JobDetailPage() {
     }
   }
 
+  async function handleOpenApplyModal() {
+    if (!job) return;
+    setApplyModalOpen(true);
+    try {
+      const [templateList, myProfile] = await Promise.all([getMyCoverLetterTemplates(), getMyCandidateProfile()]);
+      setTemplates(templateList);
+      setProfile(myProfile);
+      setCoverLetterText(buildCoverLetterDraft(null, myProfile, job.title, job.companyName));
+    } catch {
+      // Templates/profile are a convenience for pre-filling — applying still works with a
+      // blank cover letter if this fails.
+    }
+  }
+
+  function handleSelectTemplate(templateId: number | "") {
+    setSelectedTemplateId(templateId);
+    if (!job || !profile) return;
+    const template = templateId === "" ? null : templates.find((t) => t.id === templateId) ?? null;
+    setCoverLetterText(buildCoverLetterDraft(template, profile, job.title, job.companyName));
+  }
+
   async function handleApply() {
     if (!job) return;
     setApplyState("applying");
     setApplyError(null);
     try {
-      await applyToJob(job.id);
+      await applyToJob(job.id, coverLetterText.trim() || undefined);
       setApplyState("applied");
+      setApplyModalOpen(false);
       toast.success("Application submitted.");
     } catch (err) {
       setApplyError(getErrorMessage(err, "Failed to apply"));
@@ -161,7 +192,7 @@ export default function JobDetailPage() {
               </p>
             ) : (
               <>
-                <Button onClick={handleApply} loading={applyState === "applying"} fullWidth>
+                <Button onClick={handleOpenApplyModal} loading={applyState === "applying"} fullWidth>
                   Apply to this job
                 </Button>
                 {applyState === "error" && <p className="error" style={{ marginTop: "0.75rem" }}>{applyError}</p>}
@@ -211,6 +242,43 @@ export default function JobDetailPage() {
           </Card>
         )}
       </div>
+
+      <Modal
+        open={applyModalOpen}
+        onClose={() => setApplyModalOpen(false)}
+        title={`Apply to ${job.title}`}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setApplyModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleApply} loading={applyState === "applying"}>Submit application</Button>
+          </>
+        }
+      >
+        {templates.length > 0 && (
+          <FormField label="Start from a template" htmlFor="apply-template" hint="Optional — you can edit the letter below either way.">
+            <select
+              id="apply-template"
+              value={selectedTemplateId}
+              onChange={(e) => handleSelectTemplate(e.target.value ? Number(e.target.value) : "")}
+            >
+              <option value="">Blank cover letter</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.title}</option>
+              ))}
+            </select>
+          </FormField>
+        )}
+        <FormField label="Cover letter" htmlFor="apply-cover-letter" hint="Auto-filled from your profile — edit freely before submitting.">
+          <textarea
+            id="apply-cover-letter"
+            rows={12}
+            value={coverLetterText}
+            onChange={(e) => setCoverLetterText(e.target.value)}
+            maxLength={4000}
+          />
+        </FormField>
+        {applyState === "error" && <p className="error">{applyError}</p>}
+      </Modal>
 
       <Modal
         open={reportOpen}

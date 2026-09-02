@@ -292,4 +292,66 @@ public class CandidateProfileServiceTests
         Assert.Equal("9876543210", dto.Phone);
         Assert.Equal("C#, SQL Server", dto.SkillsCsv);
     }
+
+    private static UpsertCandidateProfileRequest PublicShareableRequest() => new(
+        Headline: "Backend Engineer", Summary: null, Education: null, GraduationYear: null,
+        ExperienceSummary: null, TotalExperienceYears: null,
+        City: null, State: null, Locality: null,
+        CurrentSalary: null, ExpectedSalary: null, SkillsCsv: "C#",
+        Phone: null, LinkedInUrl: null, GithubUrl: null, PortfolioUrl: null,
+        AvailabilityStatus: AvailabilityStatus.OpenToOpportunities,
+        PreferredJobTypesCsv: null, PreferredLocationsCsv: null, RemotePreference: null,
+        ExpectedSalaryMin: null, ExpectedSalaryMax: null, NoticePeriodDays: null,
+        PreferredRolesCsv: null, ProfileVisibility: ProfileVisibility.PublicShareable);
+
+    [Fact]
+    public async Task UpsertMyProfile_EnablingPublicShareableFirstTime_GeneratesSlug()
+    {
+        var db = TestDbContextFactory.Create();
+        var storage = new FakeFileStorage();
+        var sut = CreateSut(db, storage);
+        var user = await SeedCandidateAsync(db, "public1@example.com");
+
+        var dto = await sut.UpsertMyProfileAsync(user.Id, PublicShareableRequest());
+
+        var profile = db.CandidateProfiles.Single(c => c.UserId == user.Id);
+        Assert.NotNull(profile.PublicProfileSlug);
+        Assert.StartsWith("test-candidate-", profile.PublicProfileSlug);
+    }
+
+    [Fact]
+    public async Task UpsertMyProfile_TogglingVisibilityOffThenBackToPublicShareable_KeepsSameSlug()
+    {
+        var db = TestDbContextFactory.Create();
+        var storage = new FakeFileStorage();
+        var sut = CreateSut(db, storage);
+        var user = await SeedCandidateAsync(db, "public2@example.com");
+
+        await sut.UpsertMyProfileAsync(user.Id, PublicShareableRequest());
+        var firstSlug = db.CandidateProfiles.Single(c => c.UserId == user.Id).PublicProfileSlug;
+
+        await sut.UpsertMyProfileAsync(user.Id, PublicShareableRequest() with { ProfileVisibility = ProfileVisibility.Private });
+        await sut.UpsertMyProfileAsync(user.Id, PublicShareableRequest());
+        var secondSlug = db.CandidateProfiles.Single(c => c.UserId == user.Id).PublicProfileSlug;
+
+        Assert.Equal(firstSlug, secondSlug);
+    }
+
+    [Fact]
+    public async Task UpsertMyProfile_TwoDifferentCandidatesEnablingPublicShareable_GetDifferentSlugs()
+    {
+        var db = TestDbContextFactory.Create();
+        var storage = new FakeFileStorage();
+        var sut = CreateSut(db, storage);
+        var userA = await SeedCandidateAsync(db, "public3a@example.com");
+        var userB = await SeedCandidateAsync(db, "public3b@example.com");
+
+        await sut.UpsertMyProfileAsync(userA.Id, PublicShareableRequest());
+        await sut.UpsertMyProfileAsync(userB.Id, PublicShareableRequest());
+
+        var slugA = db.CandidateProfiles.Single(c => c.UserId == userA.Id).PublicProfileSlug;
+        var slugB = db.CandidateProfiles.Single(c => c.UserId == userB.Id).PublicProfileSlug;
+
+        Assert.NotEqual(slugA, slugB);
+    }
 }

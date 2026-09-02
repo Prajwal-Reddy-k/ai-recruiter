@@ -62,6 +62,19 @@ public class InvitationServiceTests
     }
 
     [Fact]
+    public async Task InviteAsync_PublicShareableCandidate_IsAllowed()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterUser, _, _, job) = await SeedRecruiterAndJobAsync(db);
+        var candidate = await SeedCandidateAsync(db, ProfileVisibility.PublicShareable);
+        var sut = CreateSut(db);
+
+        var dto = await sut.InviteAsync(recruiterUser.Id, "127.0.0.1", new InviteCandidateRequest(job.Id, candidate.Id, null));
+
+        Assert.Equal("Sent", dto.Status);
+    }
+
+    [Fact]
     public async Task InviteAsync_PrivateCandidate_ThrowsForbidden()
     {
         using var db = TestDbContextFactory.Create();

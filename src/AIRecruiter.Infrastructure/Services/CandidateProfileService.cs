@@ -4,6 +4,7 @@ using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Application.Validation;
 using AIRecruiter.Domain.Entities;
+using AIRecruiter.Domain.Enums;
 using AIRecruiter.Infrastructure.Options;
 using AIRecruiter.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -101,11 +102,34 @@ public class CandidateProfileService : ICandidateProfileService
         profile.PreferredRolesCsv = request.PreferredRolesCsv;
         profile.ProfileVisibility = request.ProfileVisibility;
 
+        if (profile.ProfileVisibility == ProfileVisibility.PublicShareable && profile.PublicProfileSlug is null)
+        {
+            profile.PublicProfileSlug = await GenerateUniqueSlugAsync(profile.User.FullName, ct);
+        }
+
         profile.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync(ct);
 
         return ToDto(profile);
+    }
+
+    /// <summary>Generates a slug via PublicProfileSlugGenerator and retries on the rare
+    /// collision — the slug's random suffix makes a collision astronomically unlikely, but
+    /// this keeps the guarantee real rather than assumed.</summary>
+    private async Task<string> GenerateUniqueSlugAsync(string fullName, CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            var candidate = PublicProfileSlugGenerator.Generate(fullName);
+            var exists = await _db.CandidateProfiles.AnyAsync(c => c.PublicProfileSlug == candidate, ct);
+            if (!exists)
+            {
+                return candidate;
+            }
+        }
+
+        throw new ConflictException("SLUG_GENERATION_FAILED", "Couldn't generate a unique public profile link. Please try again.");
     }
 
     /// <summary>Trims and deduplicates (case-insensitive) the already-validated skills list

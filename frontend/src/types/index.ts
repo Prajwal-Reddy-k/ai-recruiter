@@ -310,6 +310,8 @@ export interface CandidateDashboard {
   alertMatches: JobPosting[];
   upcomingInterviews: UpcomingInterview[];
   nextBestActions: NextBestAction[];
+  recentAssessmentResults: AssessmentAttemptHistoryItem[];
+  careerGoalsSummary: CareerGoalsSummary;
 }
 
 export interface JobPerformance {
@@ -593,6 +595,7 @@ export interface CandidateSearchDetail {
   certifications: Certification[] | null;
   projects: ResumeProject[] | null;
   achievementsText: string | null;
+  assessmentBadges: RecruiterVisibleBadge[] | null;
 }
 
 // --- Resume builder ---------------------------------------------------------
@@ -711,6 +714,167 @@ export interface Resume {
   certifications: Certification[];
   projects: ResumeProject[];
   strength: ProfileStrength;
+}
+
+// --- Cover letter templates -------------------------------------------------
+
+export interface CoverLetterTemplate {
+  id: number;
+  title: string;
+  introduction: string | null;
+  skillsHighlights: string | null;
+  projectAchievements: string | null;
+  closingMessage: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface UpsertCoverLetterTemplateRequest {
+  title: string;
+  introduction?: string;
+  skillsHighlights?: string;
+  projectAchievements?: string;
+  closingMessage?: string;
+}
+
+// --- Skill assessments -------------------------------------------------------
+
+export type AssessmentCategoryName =
+  | "Java" | "CSharpDotNet" | "React" | "JavaScript" | "Sql" | "Python" | "Communication" | "Aptitude";
+
+export interface AssessmentCategorySummary {
+  category: AssessmentCategoryName;
+  questionBankSize: number;
+  bestPercentageScore: number | null;
+  lastAttemptAt: string | null;
+  canAttemptNow: boolean;
+  cooldownEndsAtUtc: string | null;
+  hasActiveAttempt: boolean;
+}
+
+export interface AssessmentQuestionForAttempt {
+  answerId: number;
+  displayOrder: number;
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+}
+
+export interface AssessmentAttemptInProgress {
+  attemptId: number;
+  category: AssessmentCategoryName;
+  startedAtUtc: string;
+  expiresAtUtc: string;
+  questions: AssessmentQuestionForAttempt[];
+  selectedOptionsByAnswerId: Record<number, number>;
+}
+
+export interface AssessmentReviewQuestion {
+  questionText: string;
+  optionA: string;
+  optionB: string;
+  optionC: string;
+  optionD: string;
+  correctOptionIndex: number;
+  selectedOptionIndex: number | null;
+  explanation: string | null;
+}
+
+export interface AssessmentAttemptResult {
+  attemptId: number;
+  category: AssessmentCategoryName;
+  scoreCorrectCount: number;
+  totalQuestionCount: number;
+  percentageScore: number;
+  submittedAtUtc: string;
+  isVisibleToRecruiters: boolean;
+  review: AssessmentReviewQuestion[];
+}
+
+export interface AssessmentAttemptHistoryItem {
+  attemptId: number;
+  category: AssessmentCategoryName;
+  scoreCorrectCount: number;
+  totalQuestionCount: number;
+  percentageScore: number;
+  submittedAtUtc: string;
+  isVisibleToRecruiters: boolean;
+}
+
+export interface RecruiterVisibleBadge {
+  category: AssessmentCategoryName;
+  percentageScore: number;
+  submittedAtUtc: string;
+}
+
+// --- Public portfolio profile ------------------------------------------------
+
+export interface PublicCandidateProfile {
+  fullName: string;
+  headline: string | null;
+  avatarUrl: string | null;
+  skillsCsv: string | null;
+  summary: string | null;
+  experienceSummary: string | null;
+  totalExperienceYears: number | null;
+  education: string | null;
+  projects: ResumeProject[];
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  assessmentBadges: RecruiterVisibleBadge[];
+}
+
+export interface PublicProfilePreview {
+  isCurrentlyPublic: boolean;
+  publicUrl: string | null;
+  preview: PublicCandidateProfile;
+}
+
+// --- Career goals -------------------------------------------------------------
+
+export type CareerGoalStatusName = "InProgress" | "Completed" | "Paused";
+
+export interface CareerGoalSuggestion {
+  label: string;
+  tip: string;
+  linkPath: string;
+}
+
+export interface CareerGoal {
+  id: number;
+  targetRole: string | null;
+  targetSkill: string | null;
+  targetCompanyType: string | null;
+  preferredState: string | null;
+  preferredCity: string | null;
+  isLocationRemote: boolean;
+  targetCompletionDate: string | null;
+  progressPercent: number;
+  status: CareerGoalStatusName;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
+  suggestions: CareerGoalSuggestion[];
+}
+
+export interface UpsertCareerGoalRequest {
+  targetRole?: string;
+  targetSkill?: string;
+  targetCompanyType?: string;
+  preferredState?: string;
+  preferredCity?: string;
+  isLocationRemote: boolean;
+  targetCompletionDate?: string | null;
+  progressPercent: number;
+  status: CareerGoalStatusName;
+  notes?: string;
+}
+
+export interface CareerGoalsSummary {
+  goals: CareerGoal[];
 }
 
 // --- Job templates ---------------------------------------------------------

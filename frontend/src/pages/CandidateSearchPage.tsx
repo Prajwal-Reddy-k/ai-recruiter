@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Search, Send, Users } from "lucide-react";
+import { Award, Download, Search, Send, Users } from "lucide-react";
 import {
   downloadCandidateResume,
   exportCandidatesCsv,
@@ -397,6 +397,16 @@ export default function CandidateSearchPage() {
                 <div className="chip-list">
                   {detail.skillsCsv.split(",").map((s) => s.trim()).filter(Boolean).map((s) => (
                     <span key={s} className="chip">{s}</span>
+                  ))}
+                </div>
+              </>
+            )}
+            {detail.assessmentBadges && detail.assessmentBadges.length > 0 && (
+              <>
+                <h4 style={{ margin: "1rem 0 0.5rem" }}><Award size={14} style={{ verticalAlign: "-2px", marginRight: "0.25rem" }} />Skill assessment badges</h4>
+                <div className="chip-list">
+                  {detail.assessmentBadges.map((b) => (
+                    <span key={b.category} className="chip chip-matched">{b.category}: {b.percentageScore}%</span>
                   ))}
                 </div>
               </>

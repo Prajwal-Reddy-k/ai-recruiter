@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, Sparkles, UserRound } from "lucide-react";
+import { ArrowRight, Award, Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, Sparkles, Target, UserRound } from "lucide-react";
 import { getCandidateDashboard } from "../api/dashboard";
 import { acceptInvitation, declineInvitation, dismissInvitation, getMyInvitations } from "../api/invitations";
 import { useAuth } from "../context/AuthContext";
@@ -216,6 +216,44 @@ export default function CandidateDashboardPage() {
           </div>
         </Card>
       )}
+
+      {dashboard.recentAssessmentResults.length > 0 && (
+        <Card>
+          <SectionHeader title="Skill assessments" action={<Link to="/assessments">View all →</Link>} as="h3" />
+          <ul className="job-list-compact">
+            {dashboard.recentAssessmentResults.map((r) => (
+              <li key={r.attemptId} className="job-card job-card-compact">
+                <h4><Award size={16} style={{ verticalAlign: "-3px", marginRight: "0.3rem" }} />{r.category}</h4>
+                <p>{r.percentageScore}% ({r.scoreCorrectCount}/{r.totalQuestionCount}) · {new Date(r.submittedAtUtc).toLocaleDateString()}</p>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      <Card>
+        <SectionHeader title="Career goals" action={<Link to="/career-goals">View all →</Link>} as="h3" />
+        {dashboard.careerGoalsSummary.goals.length === 0 ? (
+          <EmptyState
+            icon={<Target size={28} />}
+            title="No career goals yet"
+            description="Set a goal — a target role or skill — and track your progress toward it."
+            action={<Link to="/career-goals" className="btn btn-secondary btn-sm">Set a goal</Link>}
+          />
+        ) : (
+          <ul className="job-list-compact">
+            {dashboard.careerGoalsSummary.goals.slice(0, 3).map((g) => (
+              <li key={g.id} className="job-card job-card-compact">
+                <h4>{g.targetRole || g.targetSkill || g.targetCompanyType}</h4>
+                <div className="progress-bar" style={{ margin: "0.4rem 0" }}>
+                  <div className="progress-bar-fill" style={{ width: `${g.progressPercent}%` }} />
+                </div>
+                <p className="hint">{g.progressPercent}% complete · {g.status}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
 
       <div className="dashboard-grid">
         <Card>

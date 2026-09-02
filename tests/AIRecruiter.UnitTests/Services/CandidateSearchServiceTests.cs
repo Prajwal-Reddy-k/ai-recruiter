@@ -216,6 +216,24 @@ public class CandidateSearchServiceTests
     }
 
     [Fact]
+    public async Task GetDiscoverableCandidatesAsync_IncludesPublicShareableProfiles()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+
+        var publicUser = new User { FullName = "Priya PublicShareable", Email = "priya-public@example.com", Role = UserRole.Candidate };
+        db.Users.Add(publicUser);
+        await db.SaveChangesAsync();
+        db.CandidateProfiles.Add(new CandidateProfile { UserId = publicUser.Id, ProfileVisibility = ProfileVisibility.PublicShareable });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var results = await sut.GetDiscoverableCandidatesAsync(new DiscoverCandidatesQuery(null, null, null, null, null));
+
+        Assert.Contains(results, r => r.FullName == "Priya PublicShareable");
+    }
+
+    [Fact]
     public async Task GetDiscoverableCandidatesAsync_FiltersByAvailabilityStatus()
     {
         using var db = TestDbContextFactory.Create();

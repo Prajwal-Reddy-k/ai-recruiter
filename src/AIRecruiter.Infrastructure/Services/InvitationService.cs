@@ -68,6 +68,7 @@ public class InvitationService : IInvitationService
             ?? throw new NotFoundException("Candidate not found.");
 
         var isVisible = candidate.ProfileVisibility == ProfileVisibility.VisibleToRecruiters
+            || candidate.ProfileVisibility == ProfileVisibility.PublicShareable
             || await _db.JobApplications.AnyAsync(a => a.CandidateProfileId == candidate.Id && a.JobPosting.CompanyId == recruiterProfile.CompanyId, ct);
 
         if (!isVisible)

@@ -1,3 +1,4 @@
+using AIRecruiter.Application.DTOs.Assessments;
 using AIRecruiter.Domain.Enums;
 
 namespace AIRecruiter.Application.DTOs.Candidates;
@@ -69,7 +70,8 @@ public record CandidateSearchDetailDto(
     IReadOnlyList<EducationEntryDto>? Educations = null,
     IReadOnlyList<CertificationDto>? Certifications = null,
     IReadOnlyList<ProjectDto>? Projects = null,
-    string? AchievementsText = null);
+    string? AchievementsText = null,
+    IReadOnlyList<RecruiterVisibleBadgeDto>? AssessmentBadges = null);
 
 public record DiscoverCandidatesQuery(
     string? Skills = null,

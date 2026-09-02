@@ -18,6 +18,8 @@ public class JobApplicationService : IJobApplicationService
     private static readonly ApplicationStatus[] FinalStatuses =
         { ApplicationStatus.Hired, ApplicationStatus.Rejected, ApplicationStatus.Withdrawn };
 
+    private const int MaxCoverNoteLength = 4000;
+
     private readonly AppDbContext _db;
     private readonly IResumeMatchingService _matchingService;
     private readonly CandidateProfileService _candidateProfileService;
@@ -40,6 +42,14 @@ public class JobApplicationService : IJobApplicationService
 
     public async Task<JobApplicationDto> ApplyAsync(int candidateUserId, int jobPostingId, string? coverNote, CancellationToken ct = default)
     {
+        if (coverNote is { Length: > MaxCoverNoteLength })
+        {
+            throw new ValidationException("Please fix the highlighted fields.", new Dictionary<string, string>
+            {
+                ["coverNote"] = $"Cover letter must be {MaxCoverNoteLength} characters or fewer.",
+            });
+        }
+
         var candidateProfile = await _db.CandidateProfiles.Include(c => c.User)
             .FirstOrDefaultAsync(c => c.UserId == candidateUserId, ct)
             ?? throw new NotFoundException("Complete your candidate profile before applying.");
@@ -74,7 +84,7 @@ public class JobApplicationService : IJobApplicationService
         {
             JobPostingId = job.Id,
             CandidateProfileId = candidateProfile.Id,
-            CoverNote = coverNote,
+            CoverNote = coverNote?.Trim(),
             Status = ApplicationStatus.Applied,
         };
 

@@ -1,4 +1,6 @@
 using AIRecruiter.Application.DTOs.Applications;
+using AIRecruiter.Application.DTOs.Assessments;
+using AIRecruiter.Application.DTOs.CareerGoals;
 using AIRecruiter.Application.DTOs.Interviews;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Application.DTOs.Recruiters;
@@ -25,7 +27,9 @@ public record CandidateDashboardDto(
     int ActiveAlertCount,
     IReadOnlyList<JobPostingDto> AlertMatches,
     IReadOnlyList<UpcomingInterviewDto> UpcomingInterviews,
-    IReadOnlyList<NextBestActionDto> NextBestActions);
+    IReadOnlyList<NextBestActionDto> NextBestActions,
+    IReadOnlyList<AssessmentAttemptHistoryItemDto> RecentAssessmentResults,
+    CareerGoalsSummaryDto CareerGoalsSummary);
 
 public record JobPerformanceDto(
     int JobId,
