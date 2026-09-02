@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AIRecruiter.Application.DTOs.Auth;
+using AIRecruiter.Application.DTOs.Referrals;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Domain.Entities;
 using AIRecruiter.Domain.Enums;
@@ -85,6 +86,49 @@ public class AuthServiceTests
 
         Assert.NotNull(ex.FieldErrors);
         Assert.True(ex.FieldErrors!.ContainsKey("fullName"));
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithValidReferralToken_LinksReferral()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (sut, _) = CreateSut(db);
+        var referralService = TestServiceFactory.CreateReferralService(db);
+
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita@example.com", Role = UserRole.Recruiter, PasswordHash = "x" };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        var company = new Company { Name = "Acme Corp" };
+        var recruiterProfile = new RecruiterProfile { UserId = recruiterUser.Id, Company = company };
+        db.RecruiterProfiles.Add(recruiterProfile);
+        await db.SaveChangesAsync();
+        var job = new JobPosting { Title = "Backend Engineer", Description = "role", CompanyId = company.Id, RecruiterProfileId = recruiterProfile.Id, Status = JobStatus.Open, ModerationStatus = ModerationStatus.Approved };
+        db.JobPostings.Add(job);
+        await db.SaveChangesAsync();
+
+        var referrer = new User { FullName = "Reggie Referrer", Email = "reggie@example.com", Role = UserRole.Candidate, PasswordHash = "x" };
+        db.Users.Add(referrer);
+        await db.SaveChangesAsync();
+
+        var response = await referralService.CreateAsync(referrer.Id, "127.0.0.1",
+            new CreateReferralRequest("Fiona Friend", "friend@example.com", null, null, null, job.Id));
+
+        var auth = await sut.RegisterAsync(new RegisterRequest("Fiona Friend", "friend@example.com", "Passw0rd!", UserRole.Candidate, response.RawToken));
+
+        var referral = db.Referrals.Single(r => r.Id == response.Id);
+        Assert.Equal(auth.UserId, referral.RegisteredUserId);
+        Assert.Equal(ReferralStatus.Registered, referral.Status);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_WithInvalidReferralToken_StillSucceeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (sut, _) = CreateSut(db);
+
+        var auth = await sut.RegisterAsync(new RegisterRequest("Someone New", "newperson@example.com", "Passw0rd!", UserRole.Candidate, "not-a-real-token"));
+
+        Assert.True(auth.UserId > 0);
     }
 
     [Fact]

@@ -56,4 +56,10 @@ public static class TestServiceFactory
     public static PublicProfileService CreatePublicProfileService(AppDbContext db) => new(db);
 
     public static CareerGoalService CreateCareerGoalService(AppDbContext db) => new(db, CreateLocationValidator());
+
+    public static OfferService CreateOfferService(AppDbContext db) => new(db, CreateNotifications(db));
+
+    public static TalentPoolService CreateTalentPoolService(AppDbContext db) => new(db);
+
+    public static ReferralService CreateReferralService(AppDbContext db) => new(db, new InMemoryIpRateLimiter());
 }

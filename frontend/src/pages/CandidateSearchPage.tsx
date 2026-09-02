@@ -26,6 +26,7 @@ import FormField from "../components/ui/FormField";
 import PageHeader from "../components/ui/PageHeader";
 import Avatar from "../components/ui/Avatar";
 import { resolveAvatarUrl } from "../utils/format";
+import SaveToPoolModal from "../components/SaveToPoolModal";
 
 const STATUS_OPTIONS: ApplicationStatusValue[] = [
   "Applied", "Screening", "Shortlisted", "InterviewScheduled", "InterviewCompleted", "Offer", "Hired", "Rejected", "Withdrawn",
@@ -51,6 +52,7 @@ export default function CandidateSearchPage() {
   const [filters, setFilters] = useState<CandidateSearchFilters>({ sort: "NewestApplication" });
 
   const [detail, setDetail] = useState<CandidateSearchDetail | null>(null);
+  const [poolTarget, setPoolTarget] = useState<CandidateSearchDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
@@ -381,6 +383,7 @@ export default function CandidateSearchPage() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
               <Avatar name={detail.fullName} size={48} src={resolveAvatarUrl(detail.avatarUrl)} />
+              <Button size="sm" variant="secondary" onClick={() => setPoolTarget(detail)}>Save to pool</Button>
             </div>
             {detail.headline && <p className="hint">{detail.headline}</p>}
             <p style={{ marginTop: "0.5rem" }}>{detail.displayLocation} {detail.totalExperienceYears != null && `· ${detail.totalExperienceYears} yrs experience`}</p>
@@ -483,6 +486,14 @@ export default function CandidateSearchPage() {
         </FormField>
         {inviteJobId && inviteError && <p className="error">{inviteError}</p>}
       </Modal>
+
+      {poolTarget && (
+        <SaveToPoolModal
+          candidateProfileId={poolTarget.candidateProfileId}
+          candidateName={poolTarget.fullName}
+          onClose={() => setPoolTarget(null)}
+        />
+      )}
     </div>
   );
 }

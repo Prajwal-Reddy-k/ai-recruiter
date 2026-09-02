@@ -19,6 +19,7 @@ import Card from "../components/ui/Card";
 import Modal from "../components/ui/Modal";
 import FormField from "../components/ui/FormField";
 import JobCard from "../components/JobCard";
+import CreateReferralModal from "../components/CreateReferralModal";
 
 type ApplyState = "idle" | "applying" | "applied" | "error";
 
@@ -40,6 +41,7 @@ export default function JobDetailPage() {
   const [savePending, setSavePending] = useState(false);
 
   const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [referralModalOpen, setReferralModalOpen] = useState(false);
   const [templates, setTemplates] = useState<CoverLetterTemplate[]>([]);
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
@@ -219,6 +221,17 @@ export default function JobDetailPage() {
             </Button>
           )}
 
+          {isAuthenticated && job.status === "Open" && (
+            <Button
+              variant="secondary"
+              onClick={() => setReferralModalOpen(true)}
+              fullWidth
+              style={{ marginTop: "0.75rem" }}
+            >
+              Refer a friend
+            </Button>
+          )}
+
           {isAuthenticated && (
             <button
               type="button"
@@ -328,6 +341,14 @@ export default function JobDetailPage() {
           </>
         )}
       </Modal>
+
+      {referralModalOpen && (
+        <CreateReferralModal
+          jobPostingId={job.id}
+          jobTitle={job.title}
+          onClose={() => setReferralModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

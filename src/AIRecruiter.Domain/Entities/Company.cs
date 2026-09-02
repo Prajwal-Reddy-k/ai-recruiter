@@ -21,4 +21,5 @@ public class Company : BaseEntity
     public ICollection<JobPosting> JobPostings { get; set; } = new List<JobPosting>();
     public ICollection<RecruiterProfile> Recruiters { get; set; } = new List<RecruiterProfile>();
     public ICollection<JobTemplate> JobTemplates { get; set; } = new List<JobTemplate>();
+    public ICollection<TalentPool> TalentPools { get; set; } = new List<TalentPool>();
 }

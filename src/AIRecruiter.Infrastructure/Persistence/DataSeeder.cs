@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using AIRecruiter.Domain.Entities;
 using AIRecruiter.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
@@ -28,6 +30,9 @@ public static class DataSeeder
         // existing dev database from an earlier run. Without this, a database seeded before
         // this feature batch was added would never receive any of this demo content.
         await SeedFeatureBatch2DemoDataAsync(db, ct);
+
+        // Same independent-guard reasoning as above, for the offers/talent-pools/referrals batch.
+        await SeedOffersTalentPoolsReferralsDemoDataAsync(db, ct);
     }
 
     private static async Task SeedCoreDemoDataAsync(AppDbContext db, CancellationToken ct)
@@ -462,6 +467,173 @@ public static class DataSeeder
                 SelectedOptionIndex = 0,
             });
         }
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Offers/talent-pools/referrals demo content. Independently guarded and looks
+    /// existing seeded users/applications up by email rather than taking them as parameters,
+    /// for the same reason as SeedFeatureBatch2DemoDataAsync — this may run against a
+    /// database seeded before this batch existed.</summary>
+    private static async Task SeedOffersTalentPoolsReferralsDemoDataAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.Offers.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var recruiter1User = await db.Users.FirstAsync(u => u.Email == $"recruiter1{EmailDomain}", ct);
+        var recruiter3User = await db.Users.FirstAsync(u => u.Email == $"recruiter3{EmailDomain}", ct);
+        var recruiter4User = await db.Users.FirstAsync(u => u.Email == $"recruiter4{EmailDomain}", ct);
+        var recruiter5User = await db.Users.FirstAsync(u => u.Email == $"recruiter5{EmailDomain}", ct);
+        var candidate1Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate1{EmailDomain}", ct);
+        var candidate2User = await db.Users.FirstAsync(u => u.Email == $"candidate2{EmailDomain}", ct);
+        var candidate6Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate6{EmailDomain}", ct);
+
+        // --- Offers ---------------------------------------------------------------------
+        var appSeniorBackendCandidate1 = await db.JobApplications
+            .FirstAsync(a => a.CandidateProfileId == candidate1Profile.Id && a.JobPosting.Title == "Senior Backend Engineer", ct);
+        var appBackendPaymentsCandidate4 = await db.JobApplications
+            .Include(a => a.JobPosting)
+            .FirstAsync(a => a.JobPosting.Title == "Backend Engineer (Payments)", ct);
+        var appFrontendReactCandidate3 = await db.JobApplications
+            .FirstAsync(a => a.JobPosting.Title == "Frontend Developer (React)" && a.Status == ApplicationStatus.Hired, ct);
+        var appFullStackChennaiCandidate6 = await db.JobApplications
+            .FirstAsync(a => a.JobPosting.Title == "Full Stack Developer" && a.Status == ApplicationStatus.Offer, ct);
+
+        db.Offers.Add(new Offer
+        {
+            JobApplicationId = appSeniorBackendCandidate1.Id,
+            CreatedByUserId = recruiter1User.Id,
+            OfferedSalary = 2200000, SalaryType = SalaryType.Annual,
+            JoiningDate = DateTime.UtcNow.AddMonths(1),
+            WorkCity = "Bengaluru", WorkState = "Karnataka", IsRemote = false,
+            EmploymentType = JobType.FullTime,
+            ProbationDetails = "3 months, confirmable on satisfactory performance.",
+            Benefits = "Health insurance, ESOPs, hybrid work, annual learning budget.",
+            ExpiryDateUtc = DateTime.UtcNow.AddDays(10),
+            RecruiterMessage = "Still finalizing the exact package — draft for internal review.",
+            Status = OfferStatus.Draft,
+        });
+
+        var sentOffer = new Offer
+        {
+            JobApplicationId = appBackendPaymentsCandidate4.Id,
+            CreatedByUserId = recruiter4User.Id,
+            OfferedSalary = 2600000, SalaryType = SalaryType.Annual,
+            JoiningDate = DateTime.UtcNow.AddMonths(1).AddDays(15),
+            WorkCity = "Mumbai", WorkState = "Maharashtra", IsRemote = false,
+            EmploymentType = JobType.FullTime,
+            ProbationDetails = "6 months.",
+            Benefits = "Health insurance, performance bonus, gym membership.",
+            ExpiryDateUtc = DateTime.UtcNow.AddDays(7),
+            RecruiterMessage = "We'd love to have you on the Payments platform team!",
+            Status = OfferStatus.Sent,
+            SentAtUtc = DateTime.UtcNow.AddDays(-2),
+        };
+        db.Offers.Add(sentOffer);
+
+        var acceptedOffer = new Offer
+        {
+            JobApplicationId = appFrontendReactCandidate3.Id,
+            CreatedByUserId = recruiter3User.Id,
+            OfferedSalary = 180000, SalaryType = SalaryType.Monthly,
+            JoiningDate = DateTime.UtcNow.AddDays(-5),
+            WorkCity = "Pune", WorkState = "Maharashtra", IsRemote = false,
+            EmploymentType = JobType.FullTime,
+            ProbationDetails = "3 months.",
+            Benefits = "Health insurance, employee discounts, relocation support.",
+            ExpiryDateUtc = DateTime.UtcNow.AddDays(-8),
+            RecruiterMessage = "Welcome to the team!",
+            Status = OfferStatus.Accepted,
+            SentAtUtc = DateTime.UtcNow.AddDays(-15),
+            RespondedAtUtc = DateTime.UtcNow.AddDays(-14),
+            CandidateResponseNote = "Thrilled to join — see you soon!",
+        };
+        db.Offers.Add(acceptedOffer);
+
+        var expiredOffer = new Offer
+        {
+            JobApplicationId = appFullStackChennaiCandidate6.Id,
+            CreatedByUserId = recruiter5User.Id,
+            OfferedSalary = 1500000, SalaryType = SalaryType.Annual,
+            JoiningDate = DateTime.UtcNow.AddDays(-20),
+            WorkCity = "Chennai", WorkState = "Tamil Nadu", IsRemote = false,
+            EmploymentType = JobType.FullTime,
+            ProbationDetails = "3 months.",
+            Benefits = "Health insurance, provident fund, hybrid work.",
+            ExpiryDateUtc = DateTime.UtcNow.AddDays(-25),
+            RecruiterMessage = "Offer lapsed — candidate did not respond in time.",
+            Status = OfferStatus.Expired,
+            SentAtUtc = DateTime.UtcNow.AddDays(-30),
+        };
+        db.Offers.Add(expiredOffer);
+
+        await db.SaveChangesAsync(ct);
+
+        db.OfferStatusHistories.Add(new OfferStatusHistory { OfferId = sentOffer.Id, FromStatus = OfferStatus.Draft, ToStatus = OfferStatus.Sent, ChangedByUserId = recruiter4User.Id, Note = null });
+        db.OfferStatusHistories.Add(new OfferStatusHistory { OfferId = acceptedOffer.Id, FromStatus = OfferStatus.Draft, ToStatus = OfferStatus.Sent, ChangedByUserId = recruiter3User.Id });
+        db.OfferStatusHistories.Add(new OfferStatusHistory { OfferId = acceptedOffer.Id, FromStatus = OfferStatus.Sent, ToStatus = OfferStatus.Accepted, ChangedByUserId = appFrontendReactCandidate3.CandidateProfileId, Note = "Offer accepted" });
+        db.OfferStatusHistories.Add(new OfferStatusHistory { OfferId = expiredOffer.Id, FromStatus = OfferStatus.Draft, ToStatus = OfferStatus.Sent, ChangedByUserId = recruiter5User.Id });
+        await db.SaveChangesAsync(ct);
+
+        // --- Talent pool ------------------------------------------------------------------
+        // candidate1 and candidate6 have both directly applied to a Nimbus job, so both are
+        // visible to recruiter1 under the same privacy rule TalentPoolService enforces.
+        var nimbusCompanyId = (await db.JobPostings.FirstAsync(j => j.Id == appSeniorBackendCandidate1.JobPostingId, ct)).CompanyId;
+        var backendPool = new TalentPool { CompanyId = nimbusCompanyId, CreatedByUserId = recruiter1User.Id, Name = "Backend Shortlist" };
+        db.TalentPools.Add(backendPool);
+        await db.SaveChangesAsync(ct);
+
+        db.TalentPoolCandidates.AddRange(
+            new TalentPoolCandidate { TalentPoolId = backendPool.Id, CandidateProfileId = candidate1Profile.Id, AddedByUserId = recruiter1User.Id, Notes = "Strong ASP.NET Core background — keep warm for the next backend opening.", TagsCsv = "backend,senior" },
+            new TalentPoolCandidate { TalentPoolId = backendPool.Id, CandidateProfileId = candidate6Profile.Id, AddedByUserId = recruiter1User.Id, Notes = "Full-stack, comfortable across C# and React.", TagsCsv = "backend,fullstack" });
+        await db.SaveChangesAsync(ct);
+
+        // --- Referrals ----------------------------------------------------------------------
+        var jobDataAnalyst = await db.JobPostings.FirstAsync(j => j.Title == "Data Analyst", ct);
+
+        // Invited — no registration yet, demonstrates the copy-link starting state.
+        db.Referrals.Add(new Referral
+        {
+            ReferrerUserId = candidate2User.Id,
+            JobPostingId = jobDataAnalyst.Id,
+            ReferredName = "Rohit Verma",
+            ReferredEmail = "rohit.verma.referral@example.com",
+            ReferredPhone = "9123456780",
+            RelevantSkillsCsv = "Python, SQL",
+            Note = "Former teammate, great with data storytelling.",
+            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("seed-invited-referral-token"))),
+            TokenExpiresAtUtc = DateTime.UtcNow.AddDays(25),
+            Status = ReferralStatus.Invited,
+        });
+
+        // Registered + Applied — simulates the full lifecycle: the referred person made an
+        // account and applied to the referred job.
+        var referredUser = new User { FullName = "Neha Kapoor", Email = "neha.kapoor.referred@example.com", PasswordHash = BCrypt.Net.BCrypt.HashPassword(DemoPassword), Role = UserRole.Candidate };
+        db.Users.Add(referredUser);
+        await db.SaveChangesAsync(ct);
+        var referredProfile = new CandidateProfile { UserId = referredUser.Id, Headline = "Data Analyst", SkillsCsv = "Python, SQL, Power BI" };
+        db.CandidateProfiles.Add(referredProfile);
+        await db.SaveChangesAsync(ct);
+        var referredApplication = new JobApplication { JobPostingId = jobDataAnalyst.Id, CandidateProfileId = referredProfile.Id, Status = ApplicationStatus.Screening };
+        db.JobApplications.Add(referredApplication);
+        await db.SaveChangesAsync(ct);
+
+        db.Referrals.Add(new Referral
+        {
+            ReferrerUserId = candidate2User.Id,
+            JobPostingId = jobDataAnalyst.Id,
+            ReferredName = "Neha Kapoor",
+            ReferredEmail = "neha.kapoor.referred@example.com",
+            TokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("seed-applied-referral-token"))),
+            TokenExpiresAtUtc = DateTime.UtcNow.AddDays(20),
+            Status = ReferralStatus.Applied,
+            RegisteredUserId = referredUser.Id,
+            RegisteredAtUtc = DateTime.UtcNow.AddDays(-6),
+            JobApplicationId = referredApplication.Id,
+            AppliedAtUtc = DateTime.UtcNow.AddDays(-4),
+        });
 
         await db.SaveChangesAsync(ct);
     }

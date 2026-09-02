@@ -39,6 +39,11 @@ public class AppDbContext : DbContext
     public DbSet<SkillAssessmentAttempt> SkillAssessmentAttempts => Set<SkillAssessmentAttempt>();
     public DbSet<SkillAssessmentAnswer> SkillAssessmentAnswers => Set<SkillAssessmentAnswer>();
     public DbSet<CareerGoal> CareerGoals => Set<CareerGoal>();
+    public DbSet<Offer> Offers => Set<Offer>();
+    public DbSet<OfferStatusHistory> OfferStatusHistories => Set<OfferStatusHistory>();
+    public DbSet<TalentPool> TalentPools => Set<TalentPool>();
+    public DbSet<TalentPoolCandidate> TalentPoolCandidates => Set<TalentPoolCandidate>();
+    public DbSet<Referral> Referrals => Set<Referral>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -393,6 +398,109 @@ public class AppDbContext : DbContext
             .WithMany(c => c.CareerGoals)
             .HasForeignKey(g => g.CandidateProfileId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // --- Offers ---
+        modelBuilder.Entity<Offer>()
+            .HasOne(o => o.JobApplication)
+            .WithMany(a => a.Offers)
+            .HasForeignKey(o => o.JobApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<Offer>()
+            .HasOne(o => o.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(o => o.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Offer>()
+            .HasIndex(o => new { o.JobApplicationId, o.Status });
+
+        modelBuilder.Entity<OfferStatusHistory>()
+            .HasOne(h => h.Offer)
+            .WithMany(o => o.StatusHistory)
+            .HasForeignKey(h => h.OfferId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<OfferStatusHistory>()
+            .HasOne(h => h.ChangedByUser)
+            .WithMany()
+            .HasForeignKey(h => h.ChangedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Talent pools (company-wide resource, not a personal one) ---
+        modelBuilder.Entity<TalentPool>()
+            .HasOne(p => p.Company)
+            .WithMany(c => c.TalentPools)
+            .HasForeignKey(p => p.CompanyId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TalentPool>()
+            .HasOne(p => p.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(p => p.CreatedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TalentPoolCandidate>()
+            .HasOne(c => c.TalentPool)
+            .WithMany(p => p.Candidates)
+            .HasForeignKey(c => c.TalentPoolId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TalentPoolCandidate>()
+            .HasOne(c => c.CandidateProfile)
+            .WithMany()
+            // Restrict — defensive; no candidate hard-delete path exists today, but avoid a
+            // second cascade path off CandidateProfile alongside TalentPool -> Candidate.
+            .HasForeignKey(c => c.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TalentPoolCandidate>()
+            .HasOne(c => c.AddedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.AddedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TalentPoolCandidate>()
+            .HasIndex(c => new { c.TalentPoolId, c.CandidateProfileId })
+            .IsUnique();
+
+        // --- Referrals ---
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.ReferrerUser)
+            .WithMany()
+            .HasForeignKey(r => r.ReferrerUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.JobPosting)
+            .WithMany(j => j.Referrals)
+            .HasForeignKey(r => r.JobPostingId)
+            // Restrict, not Cascade — SQL Server rejects a second cascade path here (the
+            // other is JobPosting -> JobApplication -> Referral via JobApplicationId/SetNull).
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.RegisteredUser)
+            .WithMany()
+            .HasForeignKey(r => r.RegisteredUserId)
+            // Restrict — a second FK to User on the same row as ReferrerUserId; Restrict
+            // avoids any multi-cascade-path ambiguity.
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Referral>()
+            .HasOne(r => r.JobApplication)
+            .WithMany()
+            // SetNull — losing the linked application shouldn't delete the referral record.
+            .HasForeignKey(r => r.JobApplicationId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<Referral>()
+            .HasIndex(r => r.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<Referral>()
+            .HasIndex(r => new { r.ReferredEmail, r.JobPostingId })
+            .IsUnique();
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

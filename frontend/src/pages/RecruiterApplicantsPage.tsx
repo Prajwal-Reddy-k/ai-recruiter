@@ -12,6 +12,7 @@ import Button from "../components/ui/Button";
 import Avatar from "../components/ui/Avatar";
 import { resolveAvatarUrl } from "../utils/format";
 import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../components/ScheduleInterviewModal";
+import SaveToPoolModal from "../components/SaveToPoolModal";
 
 const RECRUITER_SELECTABLE_STATUSES: ApplicationStatusValue[] = [
   "Applied",
@@ -33,6 +34,7 @@ export default function RecruiterApplicantsPage() {
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [scheduleTarget, setScheduleTarget] = useState<JobApplication | null>(null);
+  const [poolTarget, setPoolTarget] = useState<JobApplication | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -114,6 +116,11 @@ export default function RecruiterApplicantsPage() {
                   <Button size="sm" variant="secondary" icon={<CalendarClock size={14} />} onClick={() => setScheduleTarget(app)}>
                     Schedule interview
                   </Button>
+                  {app.candidateProfileId != null && (
+                    <Button size="sm" variant="secondary" onClick={() => setPoolTarget(app)}>
+                      Save to pool
+                    </Button>
+                  )}
                 </div>
               )}
             </li>
@@ -127,6 +134,14 @@ export default function RecruiterApplicantsPage() {
         onSubmit={handleScheduleSubmit}
         candidateName={scheduleTarget?.candidateFullName ?? undefined}
       />
+
+      {poolTarget && poolTarget.candidateProfileId != null && (
+        <SaveToPoolModal
+          candidateProfileId={poolTarget.candidateProfileId}
+          candidateName={poolTarget.candidateFullName ?? "this candidate"}
+          onClose={() => setPoolTarget(null)}
+        />
+      )}
     </div>
   );
 }

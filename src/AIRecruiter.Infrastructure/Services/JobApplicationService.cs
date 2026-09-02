@@ -134,6 +134,19 @@ public class JobApplicationService : IJobApplicationService
         });
         await _db.SaveChangesAsync(ct);
 
+        var referral = await _db.Referrals.FirstOrDefaultAsync(
+            r => r.RegisteredUserId == candidateUserId && r.JobPostingId == jobPostingId && r.Status == ReferralStatus.Registered, ct);
+        if (referral is not null)
+        {
+            referral.JobApplicationId = application.Id;
+            referral.AppliedAtUtc = DateTime.UtcNow;
+            referral.Status = ReferralStatus.Applied;
+            await _db.SaveChangesAsync(ct);
+            await _notifications.NotifyAsync(
+                referral.ReferrerUserId, "ReferralApplied",
+                $"{candidateProfile.User.FullName} (your referral) applied to {job.Title}.", "Referral", referral.Id, ct);
+        }
+
         await _notifications.NotifyAsync(
             job.RecruiterProfile.UserId,
             "ApplicationReceived",
@@ -328,7 +341,8 @@ public class JobApplicationService : IJobApplicationService
         a.MatchScore.HasValue ? (int)a.MatchScore.Value : null,
         jobLocation,
         nextInterviewAtUtc,
-        a.CandidateProfile is null ? null : AvatarUrlFormatter.Format(a.CandidateProfile.Id, a.CandidateProfile.AvatarStorageKey));
+        a.CandidateProfile is null ? null : AvatarUrlFormatter.Format(a.CandidateProfile.Id, a.CandidateProfile.AvatarStorageKey),
+        a.CandidateProfileId);
 
     private static JobApplicationDetailDto ToDetailDto(JobApplication a) => new(
         a.Id,

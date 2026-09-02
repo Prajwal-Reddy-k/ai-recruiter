@@ -209,6 +209,7 @@ export interface JobApplication {
   jobLocation: string | null;
   nextInterviewAtUtc: string | null;
   candidateAvatarUrl: string | null;
+  candidateProfileId: number | null;
 }
 
 export interface StatusHistoryEntry {
@@ -1086,4 +1087,138 @@ export interface PlatformStats {
   openJobCount: number;
   candidateCount: number;
   companyCount: number;
+}
+
+// --- Offers -------------------------------------------------------------------
+
+export type OfferStatusName = "Draft" | "Sent" | "Viewed" | "Accepted" | "Declined" | "Withdrawn" | "Expired";
+export type SalaryTypeName = "Monthly" | "Annual";
+
+export interface Offer {
+  id: number;
+  jobApplicationId: number;
+  jobTitle: string;
+  companyName: string;
+  candidateName: string;
+  offeredSalary: number;
+  salaryType: SalaryTypeName;
+  joiningDate: string;
+  workCity: string | null;
+  workState: string | null;
+  isRemote: boolean;
+  employmentType: string;
+  probationDetails: string | null;
+  benefits: string | null;
+  expiryDateUtc: string;
+  recruiterMessage: string | null;
+  status: OfferStatusName;
+  sentAtUtc: string | null;
+  respondedAtUtc: string | null;
+  candidateResponseNote: string | null;
+  createdAt: string;
+}
+
+export interface OfferStatusHistoryEntry {
+  fromStatus: string | null;
+  toStatus: string;
+  changedByName: string;
+  changedAt: string;
+  note: string | null;
+}
+
+export interface OfferDetail {
+  offer: Offer;
+  statusHistory: OfferStatusHistoryEntry[];
+}
+
+export interface UpsertOfferRequest {
+  offeredSalary: number;
+  salaryType: SalaryTypeName;
+  joiningDate: string;
+  workCity?: string;
+  workState?: string;
+  isRemote: boolean;
+  employmentType: string;
+  probationDetails?: string;
+  benefits?: string;
+  expiryDateUtc: string;
+  recruiterMessage?: string;
+}
+
+export interface RespondToOfferRequest {
+  accept: boolean;
+  note?: string;
+}
+
+// --- Talent pools ---------------------------------------------------------------
+
+export interface TalentPool {
+  id: number;
+  name: string;
+  candidateCount: number;
+  createdAt: string;
+}
+
+export interface TalentPoolCandidate {
+  candidateProfileId: number;
+  fullName: string;
+  headline: string | null;
+  skillsCsv: string | null;
+  totalExperienceYears: number | null;
+  displayLocation: string;
+  avatarUrl: string | null;
+  latestApplicationJobTitle: string | null;
+  latestApplicationStatus: string | null;
+  matchScore: number | null;
+  notes: string | null;
+  tagsCsv: string | null;
+  addedAt: string;
+}
+
+export interface AddCandidateToPoolRequest {
+  candidateProfileId: number;
+  notes?: string;
+  tagsCsv?: string;
+}
+
+export interface UpdatePoolCandidateNotesRequest {
+  notes?: string;
+  tagsCsv?: string;
+}
+
+// --- Referrals --------------------------------------------------------------------
+
+export type ReferralStatusName = "Invited" | "Registered" | "Applied" | "Interviewing" | "Hired" | "NotSelected";
+
+export interface CreateReferralRequest {
+  referredName: string;
+  referredEmail: string;
+  referredPhone?: string;
+  relevantSkillsCsv?: string;
+  note?: string;
+  jobPostingId: number;
+}
+
+export interface CreateReferralResponse {
+  id: number;
+  rawToken: string;
+  tokenExpiresAtUtc: string;
+}
+
+export interface Referral {
+  id: number;
+  referredName: string;
+  referredEmail: string;
+  jobTitle: string;
+  companyName: string;
+  status: ReferralStatusName;
+  createdAt: string;
+  registeredAtUtc: string | null;
+  appliedAtUtc: string | null;
+}
+
+export interface ReferralTokenPreview {
+  jobTitle: string;
+  companyName: string;
+  tokenExpiresAtUtc: string;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { CalendarClock, Download, Sparkles } from "lucide-react";
+import { CalendarClock, Download, FileText, Sparkles } from "lucide-react";
 import {
   getApplicationDetail,
   downloadApplicationResume,
@@ -18,8 +18,12 @@ import {
   rescheduleInterview,
   scheduleInterview,
 } from "../api/interviews";
-import type { Interview, JobApplicationDetail } from "../types";
+import {
+  createOfferDraft, getOffersForApplication, updateOfferDraft, sendOffer, withdrawOffer, getOfferDetail, respondToOffer,
+} from "../api/offers";
+import type { Interview, JobApplicationDetail, Offer, UpsertOfferRequest } from "../types";
 import { saveBlobAsFile } from "../utils/download";
+import { generateOfferPdf } from "../utils/offerPdf";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorCode, getErrorMessage } from "../utils/errors";
@@ -33,6 +37,9 @@ import ScheduleInterviewModal, { type ScheduleInterviewFormPayload } from "../co
 import MessageThread from "../components/MessageThread";
 import FeedbackSummary from "../components/FeedbackSummary";
 import ApplicationTimeline from "../components/ApplicationTimeline";
+import OfferFormModal from "../components/OfferFormModal";
+
+const OFFER_INACTIVE_STATUSES = new Set(["Declined", "Withdrawn", "Expired"]);
 
 const TERMINAL_STATUSES = new Set(["Withdrawn", "Rejected", "Hired"]);
 
@@ -63,16 +70,97 @@ export default function ApplicationDetailPage() {
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Interview | null>(null);
 
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [editingOffer, setEditingOffer] = useState<Offer | "new" | null>(null);
+  const [offerActionLoading, setOfferActionLoading] = useState(false);
+  const [respondAction, setRespondAction] = useState<"accept" | "decline" | null>(null);
+  const [respondNote, setRespondNote] = useState("");
+
   useEffect(() => {
     if (!id) return;
-    Promise.all([getApplicationDetail(Number(id)), getInterviewsForApplication(Number(id))])
-      .then(([app, ivs]) => {
+    Promise.all([getApplicationDetail(Number(id)), getInterviewsForApplication(Number(id)), getOffersForApplication(Number(id))])
+      .then(([app, ivs, offerList]) => {
         setApplication(app);
         setInterviews(ivs);
+        setOffers(offerList);
       })
       .catch(() => setError("This application could not be found or you don't have access to it."))
       .finally(() => setLoading(false));
   }, [id]);
+
+  async function refreshOffers() {
+    if (!application) return;
+    setOffers(await getOffersForApplication(application.id));
+  }
+
+  const latestOffer = offers[0] ?? null;
+  const hasActiveOffer = latestOffer !== null && !OFFER_INACTIVE_STATUSES.has(latestOffer.status) && latestOffer.status !== "Accepted";
+
+  async function handleSaveOffer(data: UpsertOfferRequest) {
+    if (!application) return;
+    if (editingOffer === "new") {
+      await createOfferDraft(application.id, data);
+      toast.success("Offer draft created.");
+    } else if (editingOffer) {
+      await updateOfferDraft(editingOffer.id, data);
+      toast.success("Offer draft updated.");
+    }
+    setEditingOffer(null);
+    await refreshOffers();
+  }
+
+  async function handleSendOffer(offerId: number) {
+    setOfferActionLoading(true);
+    try {
+      await sendOffer(offerId);
+      toast.success("Offer sent to the candidate.");
+      await refreshOffers();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to send offer"));
+    } finally {
+      setOfferActionLoading(false);
+    }
+  }
+
+  async function handleWithdrawOffer(offerId: number) {
+    setOfferActionLoading(true);
+    try {
+      await withdrawOffer(offerId);
+      toast.success("Offer withdrawn.");
+      await refreshOffers();
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to withdraw offer"));
+    } finally {
+      setOfferActionLoading(false);
+    }
+  }
+
+  async function handleRespondToOffer() {
+    if (!latestOffer || !respondAction) return;
+    setOfferActionLoading(true);
+    try {
+      await respondToOffer(latestOffer.id, { accept: respondAction === "accept", note: respondNote || undefined });
+      toast.success(respondAction === "accept" ? "Offer accepted!" : "Offer declined.");
+      await refreshOffers();
+      if (application) setApplication(await getApplicationDetail(application.id));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to respond to offer"));
+    } finally {
+      setOfferActionLoading(false);
+      setRespondAction(null);
+      setRespondNote("");
+    }
+  }
+
+  async function handleDownloadOfferPdf(offerId: number) {
+    try {
+      const detail = await getOfferDetail(offerId);
+      const blob = generateOfferPdf(detail);
+      saveBlobAsFile(blob, `offer-${detail.offer.jobTitle.replace(/\s+/g, "_")}.pdf`);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to generate offer PDF"));
+    }
+  }
 
   async function refreshInterviews() {
     if (!application) return;
@@ -295,6 +383,70 @@ export default function ApplicationDetailPage() {
         ))}
 
         <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>
+          <div className="section-header">
+            <h3><FileText size={18} style={{ verticalAlign: "-3px", marginRight: "0.3rem" }} />Offer</h3>
+            {user?.role === "Recruiter" && !hasActiveOffer && application.status !== "Withdrawn" && (
+              <Button size="sm" onClick={() => setEditingOffer("new")}>Create offer</Button>
+            )}
+          </div>
+
+          {!latestOffer ? (
+            <p className="hint">No offer has been created for this application yet.</p>
+          ) : (
+            <div>
+              <p><StatusBadge status={latestOffer.status} /></p>
+              <p style={{ marginTop: "0.5rem" }}>
+                {latestOffer.salaryType === "Monthly" ? "₹" + latestOffer.offeredSalary.toLocaleString("en-IN") + "/month" : "₹" + latestOffer.offeredSalary.toLocaleString("en-IN") + "/year"}
+                {" · "}Joining {new Date(latestOffer.joiningDate).toLocaleDateString()}
+              </p>
+              <p className="hint">{latestOffer.isRemote ? "Remote — India" : [latestOffer.workCity, latestOffer.workState].filter(Boolean).join(", ")} · {latestOffer.employmentType}</p>
+              {latestOffer.recruiterMessage && <p style={{ marginTop: "0.5rem" }}>{latestOffer.recruiterMessage}</p>}
+              <p className="hint" style={{ marginTop: "0.5rem" }}>Expires {new Date(latestOffer.expiryDateUtc).toLocaleDateString()}</p>
+
+              <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem", flexWrap: "wrap" }}>
+                <Button size="sm" variant="secondary" icon={<Download size={14} />} onClick={() => handleDownloadOfferPdf(latestOffer.id)}>
+                  Download PDF
+                </Button>
+
+                {user?.role === "Recruiter" && latestOffer.status === "Draft" && (
+                  <>
+                    <Button size="sm" variant="secondary" onClick={() => setEditingOffer(latestOffer)}>Edit draft</Button>
+                    <Button size="sm" loading={offerActionLoading} onClick={() => handleSendOffer(latestOffer.id)}>Send offer</Button>
+                  </>
+                )}
+                {user?.role === "Recruiter" && (latestOffer.status === "Sent" || latestOffer.status === "Viewed") && (
+                  <Button size="sm" variant="danger" loading={offerActionLoading} onClick={() => handleWithdrawOffer(latestOffer.id)}>Withdraw offer</Button>
+                )}
+
+                {user?.role === "Candidate" && (latestOffer.status === "Sent" || latestOffer.status === "Viewed") && (
+                  <>
+                    <Button size="sm" onClick={() => setRespondAction("accept")}>Accept offer</Button>
+                    <Button size="sm" variant="danger" onClick={() => setRespondAction("decline")}>Decline offer</Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {offers.length > 1 && (
+            <div style={{ marginTop: "1rem" }}>
+              <p className="hint" style={{ marginBottom: "0.4rem" }}>Earlier offers on this application:</p>
+              <ul className="job-list-compact">
+                {offers.slice(1).map((o) => (
+                  <li key={o.id} className="job-card job-card-compact">
+                    <StatusBadge status={o.status} />
+                    <p className="hint">
+                      {o.salaryType === "Monthly" ? "₹" + o.offeredSalary.toLocaleString("en-IN") + "/month" : "₹" + o.offeredSalary.toLocaleString("en-IN") + "/year"}
+                      {" · "}Created {new Date(o.createdAt).toLocaleDateString()}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Card>
+
+        <Card className="ui-card-padded" style={{ marginTop: "1.25rem" }}>
           <h3 style={{ marginBottom: "0.75rem" }}>Messages</h3>
           <MessageThread applicationId={application.id} />
         </Card>
@@ -404,6 +556,28 @@ export default function ApplicationDetailPage() {
         existing={rescheduleTarget}
         candidateName={application.candidateFullName}
       />
+
+      {editingOffer && (
+        <OfferFormModal
+          initial={editingOffer === "new" ? null : editingOffer}
+          onClose={() => setEditingOffer(null)}
+          onSave={handleSaveOffer}
+        />
+      )}
+
+      <ConfirmDialog
+        open={respondAction !== null}
+        title={respondAction === "accept" ? "Accept this offer?" : "Decline this offer?"}
+        confirmLabel={respondAction === "accept" ? "Accept offer" : "Decline offer"}
+        danger={respondAction === "decline"}
+        loading={offerActionLoading}
+        onConfirm={handleRespondToOffer}
+        onCancel={() => { setRespondAction(null); setRespondNote(""); }}
+      >
+        <FormField label="Note (optional)" htmlFor="respond-note">
+          <textarea id="respond-note" rows={3} value={respondNote} onChange={(e) => setRespondNote(e.target.value)} />
+        </FormField>
+      </ConfirmDialog>
     </div>
   );
 }

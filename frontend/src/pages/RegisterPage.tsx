@@ -1,8 +1,9 @@
-import { useState, type FormEvent } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { Briefcase, Search, UserRound } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { Briefcase, Mail, Search, UserRound } from "lucide-react";
 import { register } from "../api/auth";
-import type { UserRole } from "../types";
+import { resolveReferralToken } from "../api/referrals";
+import type { ReferralTokenPreview, UserRole } from "../types";
 import { getErrorCode, getErrorMessage, getFieldErrors } from "../utils/errors";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
@@ -23,6 +24,16 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const referralToken = searchParams.get("ref") ?? undefined;
+  const [referralPreview, setReferralPreview] = useState<ReferralTokenPreview | null>(null);
+
+  useEffect(() => {
+    if (!referralToken) return;
+    // Invalid/expired tokens fail silently — a bad referral link should never block
+    // registration, it just means no welcome banner shows.
+    resolveReferralToken(referralToken).then(setReferralPreview).catch(() => setReferralPreview(null));
+  }, [referralToken]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -46,7 +57,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register({ fullName, email, password, role });
+      await register({ fullName, email, password, role, referralToken });
       // Registration succeeds but does not log the user in — they confirm their
       // credentials once more on the Login page, which also keeps the login code path
       // (and its audit trail) as the single place a session actually gets created.
@@ -87,6 +98,13 @@ export default function RegisterPage() {
         <div className="auth-form-panel">
           <h1>Create account</h1>
           <p>It only takes a minute to get started.</p>
+
+          {referralPreview && (
+            <p className="hint" style={{ marginBottom: "1rem" }}>
+              <Mail size={14} style={{ verticalAlign: "-2px", marginRight: "0.3rem" }} />
+              You were referred to <strong>{referralPreview.jobTitle}</strong> at <strong>{referralPreview.companyName}</strong>.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} noValidate>
             <div className="form-field">

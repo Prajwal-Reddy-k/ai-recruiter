@@ -48,6 +48,10 @@ import RecruiterMessagesPage from "./pages/RecruiterMessagesPage";
 import CandidateMessagesPage from "./pages/CandidateMessagesPage";
 import RecruiterTeamPage from "./pages/RecruiterTeamPage";
 import RecruiterReportsPage from "./pages/RecruiterReportsPage";
+import RecruiterTalentPoolsPage from "./pages/RecruiterTalentPoolsPage";
+import TalentPoolDetailPage from "./pages/TalentPoolDetailPage";
+import ReferralsPage from "./pages/ReferralsPage";
+import RecruiterReferralsPage from "./pages/RecruiterReferralsPage";
 import "./App.css";
 
 function HomeRoute() {
@@ -286,6 +290,38 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ExternalJobsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/talent-pools"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterTalentPoolsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/talent-pools/:id"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <TalentPoolDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/recruiter/referrals"
+              element={
+                <ProtectedRoute allowedRoles={["Recruiter"]}>
+                  <RecruiterReferralsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/referrals"
+              element={
+                <ProtectedRoute>
+                  <ReferralsPage />
                 </ProtectedRoute>
               }
             />

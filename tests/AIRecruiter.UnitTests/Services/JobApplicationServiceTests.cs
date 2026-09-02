@@ -92,6 +92,35 @@ public class JobApplicationServiceTests
     }
 
     [Fact]
+    public async Task ApplyAsync_AfterRegistrationViaReferral_AutoLinksAndAdvancesStatus()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (candidate, referrer, job, _) = await SeedAsync(db);
+        // referrer stands in as the person who created the referral; the app under test
+        // never distinguishes referrer role, only that Referral.RegisteredUserId matches.
+        db.Referrals.Add(new Referral
+        {
+            ReferrerUserId = referrer.Id,
+            JobPostingId = job.Id,
+            ReferredName = "Casey Candidate",
+            ReferredEmail = "casey@example.com",
+            TokenHash = "irrelevant-for-this-test",
+            TokenExpiresAtUtc = DateTime.UtcNow.AddDays(30),
+            Status = ReferralStatus.Registered,
+            RegisteredUserId = candidate.Id,
+            RegisteredAtUtc = DateTime.UtcNow,
+        });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        await sut.ApplyAsync(candidate.Id, job.Id, null);
+
+        var referral = db.Referrals.Single();
+        Assert.Equal(ReferralStatus.Applied, referral.Status);
+        Assert.NotNull(referral.JobApplicationId);
+    }
+
+    [Fact]
     public async Task ApplyAsync_NoResumeOnFile_AppliesWithoutScore()
     {
         using var db = TestDbContextFactory.Create();

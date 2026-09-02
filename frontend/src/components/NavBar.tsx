@@ -123,6 +123,8 @@ export default function NavBar() {
         <Link to="/recruiter/team" onClick={() => setMobileOpen(false)}>Team</Link>
         <Link to="/recruiter/analytics" onClick={() => setMobileOpen(false)}>Analytics</Link>
         <Link to="/recruiter/reports" onClick={() => setMobileOpen(false)}>Reports</Link>
+        <Link to="/recruiter/talent-pools" onClick={() => setMobileOpen(false)}>Talent Pools</Link>
+        <Link to="/recruiter/referrals" onClick={() => setMobileOpen(false)}>Referrals</Link>
       </>
     ) : user?.role === "Candidate" ? (
       <>
@@ -137,6 +139,7 @@ export default function NavBar() {
         <Link to="/messages" onClick={() => setMobileOpen(false)}>Messages</Link>
         <Link to="/saved-jobs" onClick={() => setMobileOpen(false)}>Saved Jobs</Link>
         <Link to="/alerts" onClick={() => setMobileOpen(false)}>Job Alerts</Link>
+        <Link to="/referrals" onClick={() => setMobileOpen(false)}>Referrals</Link>
       </>
     ) : user?.role === "Admin" ? (
       <Link to="/admin" onClick={() => setMobileOpen(false)}>Admin</Link>

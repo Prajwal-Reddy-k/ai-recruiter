@@ -11,4 +11,5 @@ public record RegisterRequest(
     [Required, MinLength(6), StringLength(200)]
     string Password,
     [Required, EnumDataType(typeof(UserRole))]
-    UserRole Role);
+    UserRole Role,
+    string? ReferralToken = null);

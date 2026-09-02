@@ -83,6 +83,23 @@ public class AuthService : IAuthService
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
 
+        if (!string.IsNullOrWhiteSpace(request.ReferralToken))
+        {
+            // Invalid/expired/already-used tokens are silently ignored — registration must
+            // always succeed on its own merits regardless of referral-link validity.
+            var tokenHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(request.ReferralToken)));
+            var referral = await _db.Referrals.FirstOrDefaultAsync(r =>
+                r.TokenHash == tokenHash && r.Status == ReferralStatus.Invited &&
+                r.TokenExpiresAtUtc > DateTime.UtcNow && r.RegisteredUserId == null, ct);
+            if (referral is not null)
+            {
+                referral.RegisteredUserId = user.Id;
+                referral.RegisteredAtUtc = DateTime.UtcNow;
+                referral.Status = ReferralStatus.Registered;
+                await _db.SaveChangesAsync(ct);
+            }
+        }
+
         await _auditLog.LogAsync(user.Id, user.Role.ToString(), "UserRegistered", "User", user.Id, new { user.Role }, ct);
 
         var (token, expiresAt) = _tokenService.GenerateToken(user);

@@ -37,6 +37,14 @@ const STATUS_TONES: Record<string, BadgeTone> = {
   Hidden: "warning",
   Pending: "warning",
   Reviewed: "neutral",
+  Sent: "info",
+  Viewed: "accent",
+  Accepted: "success",
+  Expired: "warning",
+  Registered: "info",
+  Interviewing: "accent",
+  NotSelected: "danger",
+  Invited: "info",
 };
 
 function toDisplayLabel(status: string): string {

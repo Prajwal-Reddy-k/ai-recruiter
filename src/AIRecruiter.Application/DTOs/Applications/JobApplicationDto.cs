@@ -16,7 +16,8 @@ public record JobApplicationDto(
     int? MatchScore,
     string? JobLocation = null,
     DateTime? NextInterviewAtUtc = null,
-    string? CandidateAvatarUrl = null);
+    string? CandidateAvatarUrl = null,
+    int? CandidateProfileId = null);
 
 public record UpdateApplicationStatusRequest(ApplicationStatus Status, string? Note);
 

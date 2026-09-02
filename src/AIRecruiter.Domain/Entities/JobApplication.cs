@@ -23,4 +23,5 @@ public class JobApplication : BaseEntity
     public ICollection<ApplicationStatusHistory> StatusHistory { get; set; } = new List<ApplicationStatusHistory>();
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
+    public ICollection<Offer> Offers { get; set; } = new List<Offer>();
 }
