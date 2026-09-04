@@ -19,10 +19,12 @@ public class SkillAssessmentService : ISkillAssessmentService
     private const int CooldownHours = 24;
 
     private readonly AppDbContext _db;
+    private readonly IAuditLogService _auditLog;
 
-    public SkillAssessmentService(AppDbContext db)
+    public SkillAssessmentService(AppDbContext db, IAuditLogService auditLog)
     {
         _db = db;
+        _auditLog = auditLog;
     }
 
     public async Task<IReadOnlyList<AssessmentCategorySummaryDto>> GetCategoriesAsync(int userId, CancellationToken ct = default)
@@ -132,6 +134,8 @@ public class SkillAssessmentService : ISkillAssessmentService
         }
         await _db.SaveChangesAsync(ct);
 
+        await _auditLog.LogAsync(userId, "Candidate", "AssessmentAttemptStarted", "SkillAssessmentAttempt", attempt.Id, new { Category = category.ToString() }, ct);
+
         return await GetActiveAttemptAsync(userId, attempt.Id, ct);
     }
 
@@ -201,6 +205,8 @@ public class SkillAssessmentService : ISkillAssessmentService
         attempt.SubmittedAt = DateTime.UtcNow;
         attempt.IsVisibleToRecruiters = false;
         await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(userId, "Candidate", "AssessmentAttemptSubmitted", "SkillAssessmentAttempt", attempt.Id, new { Category = attempt.Category.ToString(), attempt.PercentageScore }, ct);
 
         return ToResultDto(attempt, answers);
     }

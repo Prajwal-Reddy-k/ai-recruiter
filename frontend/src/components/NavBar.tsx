@@ -125,6 +125,7 @@ export default function NavBar() {
         <Link to="/recruiter/reports" onClick={() => setMobileOpen(false)}>Reports</Link>
         <Link to="/recruiter/talent-pools" onClick={() => setMobileOpen(false)}>Talent Pools</Link>
         <Link to="/recruiter/referrals" onClick={() => setMobileOpen(false)}>Referrals</Link>
+        <Link to="/activity" onClick={() => setMobileOpen(false)}>Activity</Link>
       </>
     ) : user?.role === "Candidate" ? (
       <>
@@ -138,8 +139,9 @@ export default function NavBar() {
         <Link to="/interviews" onClick={() => setMobileOpen(false)}>Interviews</Link>
         <Link to="/messages" onClick={() => setMobileOpen(false)}>Messages</Link>
         <Link to="/saved-jobs" onClick={() => setMobileOpen(false)}>Saved Jobs</Link>
-        <Link to="/alerts" onClick={() => setMobileOpen(false)}>Job Alerts</Link>
+        <Link to="/alerts" onClick={() => setMobileOpen(false)}>Saved Searches</Link>
         <Link to="/referrals" onClick={() => setMobileOpen(false)}>Referrals</Link>
+        <Link to="/activity" onClick={() => setMobileOpen(false)}>Activity</Link>
       </>
     ) : user?.role === "Admin" ? (
       <Link to="/admin" onClick={() => setMobileOpen(false)}>Admin</Link>
@@ -155,6 +157,7 @@ export default function NavBar() {
         <nav className="nav-links nav-links-desktop" aria-label="Primary">
           <Link to="/jobs">Jobs</Link>
           {externalJobsAvailable && <Link to="/external-jobs">External Jobs</Link>}
+          <Link to="/salary-insights">Salary Insights</Link>
           {isAuthenticated && roleLinks}
         </nav>
 
@@ -281,6 +284,7 @@ export default function NavBar() {
         <nav className="nav-links-mobile" aria-label="Mobile">
           <Link to="/jobs" onClick={() => setMobileOpen(false)}>Jobs</Link>
           {externalJobsAvailable && <Link to="/external-jobs" onClick={() => setMobileOpen(false)}>External Jobs</Link>}
+          <Link to="/salary-insights" onClick={() => setMobileOpen(false)}>Salary Insights</Link>
           {isAuthenticated && roleLinks}
           {isAuthenticated ? (
             <button type="button" onClick={handleLogout} className="btn btn-secondary btn-sm">

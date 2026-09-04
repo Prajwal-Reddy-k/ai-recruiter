@@ -33,6 +33,12 @@ public static class DataSeeder
 
         // Same independent-guard reasoning as above, for the offers/talent-pools/referrals batch.
         await SeedOffersTalentPoolsReferralsDemoDataAsync(db, ct);
+
+        // Same independent-guard reasoning as above, for the company verification/follows/share-count batch.
+        await SeedCompanyVerificationFollowsAndSharesDemoDataAsync(db, ct);
+
+        // Same independent-guard reasoning as above, for the reviews/salary-insights/saved-searches/privacy batch.
+        await SeedReviewsSalaryInsightsAndPrivacyDemoDataAsync(db, ct);
     }
 
     private static async Task SeedCoreDemoDataAsync(AppDbContext db, CancellationToken ct)
@@ -634,6 +640,259 @@ public static class DataSeeder
             JobApplicationId = referredApplication.Id,
             AppliedAtUtc = DateTime.UtcNow.AddDays(-4),
         });
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Company verification / follow-companies / job-share demo content. Independently
+    /// guarded and looks up existing seeded users/companies/jobs by email/name, for the same
+    /// reason as the other feature-batch seed methods above.</summary>
+    private static async Task SeedCompanyVerificationFollowsAndSharesDemoDataAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.CompanyFollows.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var nimbus = await db.Companies.FirstAsync(c => c.Name == "Nimbus Cloud Systems", ct);
+        var bluepeak = await db.Companies.FirstAsync(c => c.Name == "BluePeak Analytics", ct);
+        var solstice = await db.Companies.FirstAsync(c => c.Name == "Solstice Retail Group", ct);
+        var recruiter2User = await db.Users.FirstAsync(u => u.Email == $"recruiter2{EmailDomain}", ct);
+        var candidate1Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate1{EmailDomain}", ct);
+        var candidate3Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate3{EmailDomain}", ct);
+        var candidate4Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate4{EmailDomain}", ct);
+
+        // --- Company verification — one in each state, demonstrating the full workflow -----
+        nimbus.BusinessEmail = "hr@nimbus-cloud.example";
+        nimbus.VerificationStatus = CompanyVerificationStatus.Verified;
+        nimbus.VerificationDocumentReference = "CIN-U72900KA2015PTC080123";
+        nimbus.VerificationSubmittedAtUtc = DateTime.UtcNow.AddDays(-20);
+        nimbus.VerificationReviewedAtUtc = DateTime.UtcNow.AddDays(-18);
+
+        bluepeak.BusinessEmail = "people@bluepeak-analytics.example";
+        bluepeak.VerificationStatus = CompanyVerificationStatus.Pending;
+        bluepeak.VerificationDocumentReference = "CIN-U72200TG2018PTC124567";
+        bluepeak.VerificationSubmittedAtUtc = DateTime.UtcNow.AddDays(-2);
+
+        solstice.BusinessEmail = "careers@solstice-retail.example";
+        solstice.VerificationStatus = CompanyVerificationStatus.Rejected;
+        solstice.VerificationNote = "The business email domain does not match the company website. Please resubmit with a matching domain.";
+        solstice.VerificationDocumentReference = "CIN-U51909MH2012PTC231456";
+        solstice.VerificationSubmittedAtUtc = DateTime.UtcNow.AddDays(-10);
+        solstice.VerificationReviewedAtUtc = DateTime.UtcNow.AddDays(-9);
+        // Vertex, Northgate, and Coral are left at the default NotSubmitted status, demonstrating
+        // that recruiters keep full platform access while verification remains optional/unstarted.
+
+        db.Notifications.Add(new Notification
+        {
+            UserId = recruiter2User.Id,
+            Type = "CompanyVerificationPending",
+            Message = "Your company's verification submission is under review.",
+            RelatedEntityType = "Company",
+            RelatedEntityId = bluepeak.Id,
+        });
+
+        // --- Company follows — candidates following companies, with mixed notify prefs -----
+        db.CompanyFollows.AddRange(
+            new CompanyFollow { CandidateProfileId = candidate1Profile.Id, CompanyId = nimbus.Id, NotifyOnNewJob = true },
+            new CompanyFollow { CandidateProfileId = candidate3Profile.Id, CompanyId = nimbus.Id, NotifyOnNewJob = false },
+            new CompanyFollow { CandidateProfileId = candidate4Profile.Id, CompanyId = bluepeak.Id, NotifyOnNewJob = true });
+
+        // --- Job shares — a couple of jobs with a nonzero share count, so Manage Jobs /
+        // Analytics has something to display. ------------------------------------------------
+        var jobSeniorBackend = await db.JobPostings.FirstAsync(j => j.Title == "Senior Backend Engineer", ct);
+        var jobDataAnalyst = await db.JobPostings.FirstAsync(j => j.Title == "Data Analyst" && j.CompanyId == bluepeak.Id, ct);
+        jobSeniorBackend.ShareCount = 7;
+        jobDataAnalyst.ShareCount = 3;
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Company reviews / salary insights / advanced saved searches / privacy-center
+    /// demo content. Independently guarded and looks up existing seeded users/companies/jobs
+    /// by email/name, for the same reason as the other feature-batch seed methods above.
+    /// Every review uses the "Applicant" relationship type, which needs no application-history
+    /// cross-check — the simplest truthful claim for fictional seed data.</summary>
+    private static async Task SeedReviewsSalaryInsightsAndPrivacyDemoDataAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.CompanyReviews.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var nimbus = await db.Companies.FirstAsync(c => c.Name == "Nimbus Cloud Systems", ct);
+        var bluepeak = await db.Companies.FirstAsync(c => c.Name == "BluePeak Analytics", ct);
+        var solstice = await db.Companies.FirstAsync(c => c.Name == "Solstice Retail Group", ct);
+        var vertex = await db.Companies.FirstAsync(c => c.Name == "Vertex FinTech Solutions", ct);
+        var recruiter1User = await db.Users.FirstAsync(u => u.Email == $"recruiter1{EmailDomain}", ct);
+        var candidate1Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate1{EmailDomain}", ct);
+        var candidate2Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate2{EmailDomain}", ct);
+        var candidate3Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate3{EmailDomain}", ct);
+        var candidate4Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate4{EmailDomain}", ct);
+
+        // --- Company reviews — one in each moderation state ---------------------------------
+        var publishedReview = new CompanyReview
+        {
+            CompanyId = nimbus.Id,
+            CandidateProfileId = candidate1Profile.Id,
+            OverallRating = 5, WorkCultureRating = 5, InterviewExperienceRating = 4, WorkLifeBalanceRating = 4, CareerGrowthRating = 5,
+            Title = "Great engineering culture and real growth opportunities",
+            Pros = "Strong engineering practices, supportive managers, and a clear path to senior roles.",
+            Cons = "Occasional crunch before major releases.",
+            AdviceToManagement = "Keep investing in mentorship — it's the biggest reason people stay.",
+            RelationshipType = ReviewerRelationshipType.Applicant,
+            Status = ReviewStatus.Published,
+            ReviewedByUserId = recruiter1User.Id,
+            ReviewedAt = DateTime.UtcNow.AddDays(-3),
+            RecruiterResponse = "Thank you for the kind words — we're glad the mentorship program is making a difference!",
+            RecruiterResponseByUserId = recruiter1User.Id,
+            RecruiterRespondedAt = DateTime.UtcNow.AddDays(-2),
+        };
+        var pendingReview = new CompanyReview
+        {
+            CompanyId = bluepeak.Id,
+            CandidateProfileId = candidate2Profile.Id,
+            OverallRating = 4, WorkCultureRating = 4, InterviewExperienceRating = 3, WorkLifeBalanceRating = 4, CareerGrowthRating = 3,
+            Title = "Solid data team, interview process could be faster",
+            Pros = "Interesting analytics problems and a collaborative team.",
+            Cons = "The interview process took over a month end-to-end.",
+            RelationshipType = ReviewerRelationshipType.Applicant,
+            Status = ReviewStatus.Pending,
+        };
+        var rejectedReview = new CompanyReview
+        {
+            CompanyId = solstice.Id,
+            CandidateProfileId = candidate3Profile.Id,
+            OverallRating = 2, WorkCultureRating = 2, InterviewExperienceRating = 2, WorkLifeBalanceRating = 2, CareerGrowthRating = 2,
+            Title = "Disappointing experience",
+            Pros = "Nice office space.",
+            Cons = "Unprofessional communication throughout.",
+            RelationshipType = ReviewerRelationshipType.Applicant,
+            Status = ReviewStatus.Rejected,
+            ModerationNote = "Contains unverifiable claims about specific individuals — asked the reviewer to revise and resubmit.",
+            ReviewedByUserId = recruiter1User.Id,
+            ReviewedAt = DateTime.UtcNow.AddDays(-5),
+        };
+        var flaggedReview = new CompanyReview
+        {
+            CompanyId = vertex.Id,
+            CandidateProfileId = candidate4Profile.Id,
+            OverallRating = 1, WorkCultureRating = 1, InterviewExperienceRating = 2, WorkLifeBalanceRating = 1, CareerGrowthRating = 1,
+            Title = "Reported for review",
+            Pros = "N/A",
+            Cons = "N/A",
+            RelationshipType = ReviewerRelationshipType.Applicant,
+            Status = ReviewStatus.Flagged,
+        };
+        db.CompanyReviews.AddRange(publishedReview, pendingReview, rejectedReview, flaggedReview);
+        await db.SaveChangesAsync(ct);
+
+        db.Reports.Add(new Report
+        {
+            EntityType = ReportedEntityType.Review,
+            EntityId = flaggedReview.Id,
+            ReportedByUserId = recruiter1User.Id,
+            Reason = ReportReason.Other,
+            Details = "This review appears to target a specific employee by name rather than describing the candidate's own experience.",
+        });
+
+        // --- Salary insights — enough Open jobs with disclosed salaries in one role/city/band
+        // combination to clear the 5-sample privacy threshold, plus a deliberately sparse one to
+        // demonstrate "Not enough data yet." -------------------------------------------------
+        var cloudEngineerCompanies = new[] { nimbus, bluepeak, solstice, vertex };
+        var cloudRecruiterProfiles = await db.RecruiterProfiles
+            .Where(r => cloudEngineerCompanies.Select(c => c.Id).Contains(r.CompanyId))
+            .ToListAsync(ct);
+        for (var i = 0; i < 5; i++)
+        {
+            var company = cloudEngineerCompanies[i % cloudEngineerCompanies.Length];
+            var recruiterProfile = cloudRecruiterProfiles.First(r => r.CompanyId == company.Id);
+            db.JobPostings.Add(new JobPosting
+            {
+                Title = "Cloud Platform Engineer",
+                Description = "Operate and scale our cloud infrastructure across environments.",
+                RequiredSkillsCsv = "AWS, Kubernetes, Terraform",
+                MinExperienceYears = 4,
+                MaxExperienceYears = 7,
+                MinSalary = 1600000 + i * 100000,
+                MaxSalary = 2200000 + i * 100000,
+                City = "Bengaluru",
+                State = "Karnataka",
+                JobType = JobType.FullTime,
+                Status = JobStatus.Open,
+                CompanyId = company.Id,
+                RecruiterProfileId = recruiterProfile.Id,
+            });
+        }
+        // Deliberately sparse — only one data point, so Salary Insights shows "Not enough data
+        // yet" for this specific role/location combination.
+        db.JobPostings.Add(new JobPosting
+        {
+            Title = "Underwater Robotics Engineer",
+            Description = "A rare, highly specialized role with very few comparable local postings.",
+            RequiredSkillsCsv = "ROS, C++, Control Systems",
+            MinExperienceYears = 5,
+            MinSalary = 1800000,
+            MaxSalary = 2400000,
+            City = "Kochi",
+            State = "Kerala",
+            JobType = JobType.FullTime,
+            Status = JobStatus.Open,
+            CompanyId = nimbus.Id,
+            RecruiterProfileId = cloudRecruiterProfiles.First(r => r.CompanyId == nimbus.Id).Id,
+        });
+
+        // --- Advanced saved searches — a couple of candidates with named, richer searches,
+        // one marked as the default dashboard search. ---------------------------------------
+        db.JobAlerts.AddRange(
+            new JobAlert
+            {
+                CandidateProfileId = candidate1Profile.Id,
+                Name = "Bengaluru Backend Roles",
+                Keyword = "backend",
+                SkillsCsv = "C#, ASP.NET Core",
+                City = "Bengaluru",
+                State = "Karnataka",
+                JobType = JobType.FullTime,
+                MinSalary = 1800000,
+                SortOption = "Newest",
+                IsActive = true,
+                IsDefault = true,
+            },
+            new JobAlert
+            {
+                CandidateProfileId = candidate1Profile.Id,
+                Name = "Remote Cloud Roles",
+                Keyword = "cloud",
+                IsRemote = true,
+                SortOption = "SalaryHigh",
+                IsActive = true,
+                IsDefault = false,
+            },
+            new JobAlert
+            {
+                CandidateProfileId = candidate3Profile.Id,
+                Name = "React Roles in Pune",
+                SkillsCsv = "React, TypeScript",
+                City = "Pune",
+                State = "Maharashtra",
+                IsActive = true,
+                IsDefault = true,
+            });
+
+        // --- Privacy center — one demo account with a pending (not yet expired) deletion
+        // request, so the Admin's pending-deletion view has something to show. ----------------
+        var pendingDeletionUser = new User
+        {
+            FullName = "Deepa Rao",
+            Email = $"candidate9{EmailDomain}",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(DemoPassword),
+            Role = UserRole.Candidate,
+            DeletionRequestedAt = DateTime.UtcNow.AddDays(-5),
+        };
+        db.Users.Add(pendingDeletionUser);
+        await db.SaveChangesAsync(ct);
+        db.CandidateProfiles.Add(new CandidateProfile { UserId = pendingDeletionUser.Id, Headline = "Exploring a career change" });
 
         await db.SaveChangesAsync(ct);
     }

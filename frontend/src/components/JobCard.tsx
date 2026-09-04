@@ -6,6 +6,8 @@ import { formatExperienceRange, formatRelativeTime, formatSalaryRange } from "..
 import { saveJob, unsaveJob } from "../api/savedJobs";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import VerifiedBadge from "./VerifiedBadge";
+import ShareMenu from "./ShareMenu";
 
 export default function JobCard({
   job,
@@ -58,9 +60,13 @@ export default function JobCard({
           <Link to={`/jobs/${job.id}`} className="job-card-title">
             {job.title}
           </Link>
-          <p className="job-card-company">{job.companyName}</p>
+          <p className="job-card-company">
+            {job.companyName}
+            {job.companyIsVerified && <VerifiedBadge className="job-card-verified-badge" />}
+          </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {!compact && <ShareMenu jobId={job.id} jobTitle={job.title} />}
           {onToggleCompare && (
             <label className="filter-option" style={{ padding: 0 }}>
               <input

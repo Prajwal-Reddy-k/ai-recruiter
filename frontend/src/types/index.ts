@@ -42,6 +42,8 @@ export interface JobPosting {
   viewCount: number;
   publishedAt: string | null;
   applicationDeadlineUtc: string | null;
+  shareCount: number;
+  companyIsVerified: boolean;
 }
 
 export interface CreateJobPostingRequest {
@@ -62,9 +64,20 @@ export interface CreateJobPostingRequest {
 
 export type UpdateJobPostingRequest = Omit<CreateJobPostingRequest, "saveAsDraft">;
 
+export interface JobQualitySuggestion {
+  label: string;
+  tip: string;
+}
+
+export interface JobQualityScore {
+  score: number;
+  suggestions: JobQualitySuggestion[];
+}
+
 export interface RecruiterJobSummary {
   job: JobPosting;
   applicationCount: number;
+  qualityScore: JobQualityScore;
 }
 
 export interface OnboardingStatus {
@@ -129,6 +142,9 @@ export interface CompanyProfile {
   linkedInUrl: string | null;
   twitterUrl: string | null;
   openJobs: JobPosting[];
+  isVerified: boolean;
+  averageRating: number | null;
+  reviewCount: number;
 }
 
 export interface CandidateProfile {
@@ -398,6 +414,12 @@ export interface JobAlert {
   matchingJobCount: number;
   matchingJobs: JobPosting[];
   createdAt: string;
+  name: string | null;
+  keyword: string | null;
+  minSalary: number | null;
+  maxSalary: number | null;
+  sortOption: string | null;
+  isDefault: boolean;
 }
 
 export interface UpsertJobAlertRequest {
@@ -408,6 +430,11 @@ export interface UpsertJobAlertRequest {
   jobType?: string;
   minExperienceYears?: number;
   isActive?: boolean;
+  name?: string;
+  keyword?: string;
+  minSalary?: number;
+  maxSalary?: number;
+  sortOption?: string;
 }
 
 export interface SavedJobEntry {
@@ -525,6 +552,7 @@ export interface JobViewsVsApplications {
   title: string;
   viewCount: number;
   applicationCount: number;
+  shareCount: number;
 }
 
 export interface RecruiterAnalytics {
@@ -1221,4 +1249,219 @@ export interface ReferralTokenPreview {
   jobTitle: string;
   companyName: string;
   tokenExpiresAtUtc: string;
+}
+
+// --- Company verification ---------------------------------------------------------
+
+export type CompanyVerificationStatusName = "NotSubmitted" | "Pending" | "Verified" | "Rejected" | "NeedsMoreInfo";
+
+export interface SubmitCompanyVerificationRequest {
+  website?: string;
+  businessEmail: string;
+  city?: string;
+  state?: string;
+  description?: string;
+  verificationDocumentReference?: string;
+}
+
+export interface CompanyVerificationStatusDto {
+  status: CompanyVerificationStatusName;
+  note: string | null;
+  submittedAtUtc: string | null;
+  reviewedAtUtc: string | null;
+}
+
+export interface PendingCompanyVerification {
+  companyId: number;
+  companyName: string;
+  website: string | null;
+  businessEmail: string | null;
+  city: string | null;
+  state: string | null;
+  description: string | null;
+  verificationDocumentReference: string | null;
+  status: CompanyVerificationStatusName;
+  submittedAtUtc: string | null;
+}
+
+export interface SetCompanyVerificationStatusRequest {
+  status: CompanyVerificationStatusName;
+  note?: string;
+}
+
+// --- Company follows ---------------------------------------------------------------
+
+export interface FollowedCompany {
+  companyId: number;
+  companyName: string;
+  logoUrl: string | null;
+  industry: string | null;
+  notifyOnNewJob: boolean;
+  followedAtUtc: string;
+}
+
+// --- Activity timeline ---------------------------------------------------------------
+
+export type ActivityTimelineSource = "Action" | "Notification";
+
+export interface ActivityTimelineEntry {
+  type: string;
+  message: string;
+  timestampUtc: string;
+  relatedEntityType: string | null;
+  relatedEntityId: number | null;
+  source: ActivityTimelineSource;
+}
+
+// --- Company reviews ---------------------------------------------------------------
+
+export type ReviewerRelationshipTypeName = "Applicant" | "Interviewed" | "ReceivedOffer" | "Hired";
+export type ReviewStatusName = "Pending" | "Published" | "Rejected" | "Flagged";
+
+export interface SubmitCompanyReviewRequest {
+  overallRating: number;
+  workCultureRating: number;
+  interviewExperienceRating: number;
+  workLifeBalanceRating: number;
+  careerGrowthRating: number;
+  title: string;
+  pros: string;
+  cons: string;
+  adviceToManagement?: string;
+  relationshipType: ReviewerRelationshipTypeName;
+}
+
+export interface PublicCompanyReview {
+  id: number;
+  overallRating: number;
+  workCultureRating: number;
+  interviewExperienceRating: number;
+  workLifeBalanceRating: number;
+  careerGrowthRating: number;
+  title: string;
+  pros: string;
+  cons: string;
+  adviceToManagement: string | null;
+  relationshipType: ReviewerRelationshipTypeName;
+  recruiterResponse: string | null;
+  recruiterRespondedAt: string | null;
+  createdAt: string;
+}
+
+export interface CompanyReviewRatingBreakdown {
+  stars: number;
+  count: number;
+}
+
+export interface CompanyReviewsSummary {
+  averageRating: number | null;
+  reviewCount: number;
+  ratingBreakdown: CompanyReviewRatingBreakdown[];
+  reviews: PublicCompanyReview[];
+}
+
+export interface ReviewEligibility {
+  eligible: boolean;
+  alreadyReviewed: boolean;
+  reason: string | null;
+}
+
+export interface PendingCompanyReview {
+  id: number;
+  companyId: number;
+  companyName: string;
+  overallRating: number;
+  title: string;
+  pros: string;
+  cons: string;
+  adviceToManagement: string | null;
+  relationshipType: ReviewerRelationshipTypeName;
+  status: ReviewStatusName;
+  reviewerName: string;
+  createdAt: string;
+}
+
+// --- Salary insights ---------------------------------------------------------------
+
+export interface SalaryInsight {
+  roleTitle: string;
+  experienceBand: string;
+  city: string | null;
+  state: string | null;
+  isRemote: boolean;
+  min: number | null;
+  median: number | null;
+  max: number | null;
+  sampleCount: number;
+  hasEnoughData: boolean;
+}
+
+// --- Privacy center & account export ---------------------------------------------------
+
+export interface AccountDeletionStatus {
+  isPending: boolean;
+  requestedAtUtc: string | null;
+  scheduledDeactivationAtUtc: string | null;
+  daysRemaining: number | null;
+}
+
+export interface PrivacySummary {
+  profileVisibility: string | null;
+  messagesEnabled: boolean;
+  applicationsEnabled: boolean;
+  interviewsEnabled: boolean;
+  invitationsEnabled: boolean;
+  deletion: AccountDeletionStatus;
+}
+
+export interface AccountExportAccount {
+  userId: number;
+  fullName: string;
+  email: string;
+  phoneNumber: string | null;
+  role: string;
+  createdAt: string;
+}
+
+export interface AccountExportCandidateProfile {
+  headline: string | null;
+  summary: string | null;
+  education: string | null;
+  graduationYear: number | null;
+  experienceSummary: string | null;
+  totalExperienceYears: number | null;
+  city: string | null;
+  state: string | null;
+  locality: string | null;
+  skillsCsv: string | null;
+  linkedInUrl: string | null;
+  githubUrl: string | null;
+  portfolioUrl: string | null;
+  resumeOriginalFileName: string | null;
+  availabilityStatus: string;
+  preferredJobTypesCsv: string | null;
+  preferredLocationsCsv: string | null;
+  remotePreference: boolean | null;
+  expectedSalaryMin: number | null;
+  expectedSalaryMax: number | null;
+  noticePeriodDays: number | null;
+  profileVisibility: string;
+}
+
+export interface AccountExportRecruiterProfile {
+  companyName: string;
+  designation: string | null;
+  companyRole: string;
+}
+
+export interface AccountExport {
+  exportedAtUtc: string;
+  account: AccountExportAccount;
+  candidateProfile: AccountExportCandidateProfile | null;
+  recruiterProfile: AccountExportRecruiterProfile | null;
+  applications: { jobTitle: string; companyName: string; status: string; createdAt: string }[];
+  savedJobs: { jobTitle: string; companyName: string; savedAtUtc: string }[];
+  savedSearches: { name: string | null; keyword: string | null; city: string | null; state: string | null; isActive: boolean; createdAt: string }[];
+  followedCompanies: { companyName: string; followedAtUtc: string }[];
+  companyReviews: { companyName: string; overallRating: number; title: string; status: string; createdAt: string }[];
 }

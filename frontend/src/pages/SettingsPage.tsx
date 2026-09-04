@@ -1,18 +1,19 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { Bell, KeyRound, ShieldAlert, User as UserIcon } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import {
+  cancelAccountDeletion,
   changePassword,
   getNotificationPreferences,
+  getPrivacySummary,
   requestAccountDeletion,
   updateNotificationPreferences,
 } from "../api/account";
 import { getMyCandidateProfile } from "../api/candidates";
 import { getErrorMessage, getFieldErrors } from "../utils/errors";
-import type { NotificationPreferences } from "../types";
+import type { AccountDeletionStatus, NotificationPreferences } from "../types";
 import PageHeader from "../components/ui/PageHeader";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -163,7 +164,8 @@ function PrivacyCard() {
     return (
       <Card className="ui-card-padded">
         <h2>Privacy</h2>
-        <p className="hint">No additional privacy controls apply to your account type.</p>
+        <p className="hint" style={{ marginBottom: "0.75rem" }}>No additional privacy controls apply to your account type.</p>
+        <Link to="/privacy" className="btn btn-secondary btn-sm">Privacy & Data Center</Link>
       </Card>
     );
   }
@@ -174,19 +176,26 @@ function PrivacyCard() {
       <p className="hint" style={{ marginBottom: "0.75rem" }}>
         Profile visibility: <strong>{visibility ?? "Loading…"}</strong>
       </p>
-      <Link to="/profile" className="btn btn-secondary btn-sm">Manage on your profile</Link>
+      <div style={{ display: "flex", gap: "0.5rem" }}>
+        <Link to="/profile" className="btn btn-secondary btn-sm">Manage on your profile</Link>
+        <Link to="/privacy" className="btn btn-secondary btn-sm">Privacy & Data Center</Link>
+      </div>
     </Card>
   );
 }
 
 function DangerZoneCard() {
-  const { logout } = useAuth();
-  const navigate = useNavigate();
   const toast = useToast();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [deletionStatus, setDeletionStatus] = useState<AccountDeletionStatus | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+
+  useEffect(() => {
+    getPrivacySummary().then((s) => setDeletionStatus(s.deletion)).catch(() => {});
+  }, []);
 
   async function handleConfirmDeletion() {
     if (!password) {
@@ -196,10 +205,10 @@ function DangerZoneCard() {
     setSubmitting(true);
     setError(null);
     try {
-      await requestAccountDeletion({ password });
-      toast.info("Your account has been deactivated.");
-      logout();
-      navigate("/login");
+      const status = await requestAccountDeletion({ password });
+      setDeletionStatus(status);
+      toast.info(`Account deletion scheduled for ${status.scheduledDeactivationAtUtc ? new Date(status.scheduledDeactivationAtUtc).toLocaleDateString() : "later"} — your account stays active until then.`);
+      setConfirmOpen(false);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to process your request"));
     } finally {
@@ -207,28 +216,56 @@ function DangerZoneCard() {
     }
   }
 
+  async function handleCancelDeletion() {
+    setCancelling(true);
+    try {
+      const status = await cancelAccountDeletion();
+      setDeletionStatus(status);
+      toast.success("Account deletion cancelled.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to cancel deletion request"));
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   return (
     <div className="settings-danger-zone">
       <h3><ShieldAlert size={18} style={{ verticalAlign: "-3px", marginRight: "0.4rem" }} />Danger zone</h3>
-      <p className="hint" style={{ marginBottom: "1rem" }}>
-        Requesting account deletion immediately deactivates your account and signs you out everywhere — your data is
-        not permanently erased. Contact support to reactivate your account or request full data deletion.
-      </p>
-      <Button variant="danger" onClick={() => { setConfirmOpen(true); setPassword(""); setError(null); }}>
-        Request account deletion
-      </Button>
+
+      {deletionStatus?.isPending ? (
+        <>
+          <p className="error" style={{ marginBottom: "1rem" }}>
+            Your account is scheduled for deactivation on{" "}
+            {deletionStatus.scheduledDeactivationAtUtc && new Date(deletionStatus.scheduledDeactivationAtUtc).toLocaleDateString()}
+            {" "}({deletionStatus.daysRemaining} day{deletionStatus.daysRemaining === 1 ? "" : "s"} remaining). Your account stays active and usable until then.
+          </p>
+          <Button variant="secondary" loading={cancelling} onClick={handleCancelDeletion}>Cancel deletion</Button>
+        </>
+      ) : (
+        <>
+          <p className="hint" style={{ marginBottom: "1rem" }}>
+            Requesting account deletion starts a 14-day grace period — your account stays active and usable, and you
+            can cancel at any time before it's deactivated. Your data is not permanently erased.
+          </p>
+          <Button variant="danger" onClick={() => { setConfirmOpen(true); setPassword(""); setError(null); }}>
+            Request account deletion
+          </Button>
+        </>
+      )}
 
       <ConfirmDialog
         open={confirmOpen}
-        title="Deactivate your account?"
-        confirmLabel="Deactivate my account"
+        title="Request account deletion?"
+        confirmLabel="Request deletion"
         danger
         loading={submitting}
         onConfirm={handleConfirmDeletion}
         onCancel={() => setConfirmOpen(false)}
       >
         <p style={{ marginBottom: "1rem" }}>
-          This will sign you out immediately and prevent login until reactivated. Enter your password to confirm.
+          Your account will be deactivated in 14 days unless you cancel before then. You'll stay signed in and can keep
+          using the platform during this period. Enter your password to confirm.
         </p>
         <FormField label="Password" htmlFor="delete-confirm-password" error={error ?? undefined}>
           <PasswordInput id="delete-confirm-password" value={password} onChange={(e) => setPassword(e.target.value)} />

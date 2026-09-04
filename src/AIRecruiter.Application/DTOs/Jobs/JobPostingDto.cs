@@ -22,4 +22,6 @@ public record JobPostingDto(
     DateTime CreatedAt,
     int ViewCount,
     DateTime? PublishedAt,
-    DateTime? ApplicationDeadlineUtc);
+    DateTime? ApplicationDeadlineUtc,
+    int ShareCount = 0,
+    bool CompanyIsVerified = false);

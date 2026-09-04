@@ -139,6 +139,20 @@ public class CandidatesController : ControllerBase
         await _jobAlertService.DeleteAsync(User.GetUserId(), alertId, ct);
         return NoContent();
     }
+
+    [HttpPost("me/alerts/{alertId:int}/duplicate")]
+    public async Task<IActionResult> DuplicateAlert(int alertId, CancellationToken ct)
+    {
+        var alert = await _jobAlertService.DuplicateAsync(User.GetUserId(), alertId, ct);
+        return Ok(alert);
+    }
+
+    [HttpPatch("me/alerts/{alertId:int}/default")]
+    public async Task<IActionResult> SetDefaultAlert(int alertId, CancellationToken ct)
+    {
+        var alert = await _jobAlertService.SetDefaultAsync(User.GetUserId(), alertId, ct);
+        return Ok(alert);
+    }
 }
 
 public record SetAlertActiveRequest(bool IsActive);

@@ -10,7 +10,12 @@ public record UpsertJobAlertRequest(
     bool? IsRemote,
     JobType? JobType,
     int? MinExperienceYears,
-    bool IsActive = true);
+    bool IsActive = true,
+    string? Name = null,
+    string? Keyword = null,
+    decimal? MinSalary = null,
+    decimal? MaxSalary = null,
+    string? SortOption = null);
 
 public record JobAlertDto(
     int Id,
@@ -23,4 +28,10 @@ public record JobAlertDto(
     bool IsActive,
     int MatchingJobCount,
     IReadOnlyList<JobPostingDto> MatchingJobs,
-    DateTime CreatedAt);
+    DateTime CreatedAt,
+    string? Name = null,
+    string? Keyword = null,
+    decimal? MinSalary = null,
+    decimal? MaxSalary = null,
+    string? SortOption = null,
+    bool IsDefault = false);

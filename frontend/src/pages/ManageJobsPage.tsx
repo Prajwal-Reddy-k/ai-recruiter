@@ -11,6 +11,7 @@ import Modal from "../components/ui/Modal";
 import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
 import PageHeader from "../components/ui/PageHeader";
+import JobQualityScoreBadge from "../components/JobQualityScoreBadge";
 
 const EXPIRING_SOON_WINDOW_DAYS = 3;
 
@@ -211,7 +212,7 @@ export default function ManageJobsPage() {
         <EmptyState icon={<Briefcase size={32} />} title={`No ${tab.toLowerCase()} jobs`} description="Nothing to show in this tab yet." />
       ) : (
         <ul className="job-list">
-          {filtered.map(({ job, applicationCount }) => (
+          {filtered.map(({ job, applicationCount, qualityScore }) => (
             <li key={job.id} className="job-card">
               <Link to={`/jobs/${job.id}`} className="job-card-title">
                 {job.title}
@@ -228,8 +229,12 @@ export default function ManageJobsPage() {
                 <span>{applicationCount} {applicationCount === 1 ? "application" : "applications"}</span>
                 {job.status === "Open" && applicationCount === 0 && <Badge tone="warning">No applications received</Badge>}
                 <span>{job.viewCount} {job.viewCount === 1 ? "view" : "views"}</span>
+                <span>{job.shareCount} {job.shareCount === 1 ? "share" : "shares"}</span>
                 <span>Conversion: {conversionRate(job.viewCount, applicationCount)}</span>
               </p>
+              <div style={{ margin: "0.5rem 0" }}>
+                <JobQualityScoreBadge qualityScore={qualityScore} />
+              </div>
               <div className="job-card-actions">
                 <Link to={`/jobs/${job.id}/applicants`}>View applicants →</Link>
                 <Link to={`/jobs/${job.id}/board`}>Applicant board →</Link>

@@ -44,6 +44,8 @@ public class AppDbContext : DbContext
     public DbSet<TalentPool> TalentPools => Set<TalentPool>();
     public DbSet<TalentPoolCandidate> TalentPoolCandidates => Set<TalentPoolCandidate>();
     public DbSet<Referral> Referrals => Set<Referral>();
+    public DbSet<CompanyFollow> CompanyFollows => Set<CompanyFollow>();
+    public DbSet<CompanyReview> CompanyReviews => Set<CompanyReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -500,6 +502,59 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Referral>()
             .HasIndex(r => new { r.ReferredEmail, r.JobPostingId })
+            .IsUnique();
+
+        // --- Company follows (candidate follows a company) ---
+        modelBuilder.Entity<CompanyFollow>()
+            .HasOne(f => f.CandidateProfile)
+            .WithMany(c => c.FollowedCompanies)
+            .HasForeignKey(f => f.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CompanyFollow>()
+            .HasOne(f => f.Company)
+            .WithMany(c => c.Followers)
+            .HasForeignKey(f => f.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CompanyFollow>()
+            .HasIndex(f => new { f.CandidateProfileId, f.CompanyId })
+            .IsUnique();
+
+        // --- Company verification ---
+        modelBuilder.Entity<Company>()
+            .HasOne(c => c.VerificationReviewedByUser)
+            .WithMany()
+            .HasForeignKey(c => c.VerificationReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Company reviews (anonymous-to-company, one per candidate per company) ---
+        modelBuilder.Entity<CompanyReview>()
+            .HasOne(r => r.Company)
+            .WithMany(c => c.Reviews)
+            .HasForeignKey(r => r.CompanyId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CompanyReview>()
+            .HasOne(r => r.CandidateProfile)
+            .WithMany(c => c.CompanyReviews)
+            .HasForeignKey(r => r.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<CompanyReview>()
+            .HasOne(r => r.ReviewedByUser)
+            .WithMany()
+            .HasForeignKey(r => r.ReviewedByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CompanyReview>()
+            .HasOne(r => r.RecruiterResponseByUser)
+            .WithMany()
+            .HasForeignKey(r => r.RecruiterResponseByUserId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<CompanyReview>()
+            .HasIndex(r => new { r.CandidateProfileId, r.CompanyId })
             .IsUnique();
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())

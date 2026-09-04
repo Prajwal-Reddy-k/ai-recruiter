@@ -51,15 +51,27 @@ public static class TestServiceFactory
 
     public static CoverLetterTemplateService CreateCoverLetterTemplateService(AppDbContext db) => new(db);
 
-    public static SkillAssessmentService CreateSkillAssessmentService(AppDbContext db) => new(db);
+    public static SkillAssessmentService CreateSkillAssessmentService(AppDbContext db) => new(db, CreateAuditLog(db));
 
     public static PublicProfileService CreatePublicProfileService(AppDbContext db) => new(db);
 
     public static CareerGoalService CreateCareerGoalService(AppDbContext db) => new(db, CreateLocationValidator());
 
-    public static OfferService CreateOfferService(AppDbContext db) => new(db, CreateNotifications(db));
+    public static OfferService CreateOfferService(AppDbContext db) => new(db, CreateNotifications(db), CreateAuditLog(db));
 
     public static TalentPoolService CreateTalentPoolService(AppDbContext db) => new(db);
 
     public static ReferralService CreateReferralService(AppDbContext db) => new(db, new InMemoryIpRateLimiter());
+
+    public static CompanyVerificationService CreateCompanyVerificationService(AppDbContext db) => new(db, CreateAuditLog(db));
+
+    public static FollowService CreateFollowService(AppDbContext db) => new(db, CreateAuditLog(db));
+
+    public static ActivityTimelineService CreateActivityTimelineService(AppDbContext db) => new(db, CreateAuditLog(db));
+
+    public static SalaryInsightsService CreateSalaryInsightsService(AppDbContext db) => new(db);
+
+    public static CompanyReviewService CreateCompanyReviewService(AppDbContext db) => new(db, CreateAuditLog(db), new InMemoryIpRateLimiter());
+
+    public static AccountDataExportService CreateAccountDataExportService(AppDbContext db) => new(db, CreateAuditLog(db));
 }

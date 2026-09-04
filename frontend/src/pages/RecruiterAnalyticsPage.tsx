@@ -92,6 +92,7 @@ export default function RecruiterAnalyticsPage() {
                   <th>Job</th>
                   <th>Views</th>
                   <th>Applications</th>
+                  <th>Shares</th>
                   <th>Conversion</th>
                 </tr>
               </thead>
@@ -101,6 +102,7 @@ export default function RecruiterAnalyticsPage() {
                     <td>{j.title}</td>
                     <td>{j.viewCount}</td>
                     <td>{j.applicationCount}</td>
+                    <td>{j.shareCount}</td>
                     <td>{j.viewCount > 0 ? `${Math.round((j.applicationCount / j.viewCount) * 100)}%` : "—"}</td>
                   </tr>
                 ))}

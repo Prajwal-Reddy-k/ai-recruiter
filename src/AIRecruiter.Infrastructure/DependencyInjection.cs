@@ -75,6 +75,12 @@ public static class DependencyInjection
         services.AddScoped<IOfferService, OfferService>();
         services.AddScoped<ITalentPoolService, TalentPoolService>();
         services.AddScoped<IReferralService, ReferralService>();
+        services.AddScoped<ICompanyVerificationService, CompanyVerificationService>();
+        services.AddScoped<IFollowService, FollowService>();
+        services.AddScoped<IActivityTimelineService, ActivityTimelineService>();
+        services.AddScoped<ISalaryInsightsService, SalaryInsightsService>();
+        services.AddScoped<ICompanyReviewService, CompanyReviewService>();
+        services.AddScoped<IAccountDataExportService, AccountDataExportService>();
         services.AddHostedService<JobLifecycleSweepService>();
 
         // Email: a real SMTP account (any provider) if fully configured; otherwise a

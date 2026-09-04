@@ -1,7 +1,10 @@
 import apiClient from "./client";
 import type {
+  AccountDeletionStatus,
+  AccountExport,
   ChangePasswordRequest,
   NotificationPreferences,
+  PrivacySummary,
   RequestAccountDeletionRequest,
   UpdateUserDetailsRequest,
   UserDetails,
@@ -31,6 +34,27 @@ export async function updateNotificationPreferences(payload: NotificationPrefere
   return data;
 }
 
-export async function requestAccountDeletion(payload: RequestAccountDeletionRequest): Promise<void> {
-  await apiClient.post("/account/request-deletion", payload);
+export async function requestAccountDeletion(payload: RequestAccountDeletionRequest): Promise<AccountDeletionStatus> {
+  const { data } = await apiClient.post<AccountDeletionStatus>("/account/request-deletion", payload);
+  return data;
+}
+
+export async function cancelAccountDeletion(): Promise<AccountDeletionStatus> {
+  const { data } = await apiClient.post<AccountDeletionStatus>("/account/cancel-deletion");
+  return data;
+}
+
+export async function getPrivacySummary(): Promise<PrivacySummary> {
+  const { data } = await apiClient.get<PrivacySummary>("/account/privacy");
+  return data;
+}
+
+export async function getAccountDataExportJson(): Promise<AccountExport> {
+  const { data } = await apiClient.get<AccountExport>("/account/export", { params: { format: "json" } });
+  return data;
+}
+
+export async function downloadAccountDataExportCsv(): Promise<Blob> {
+  const { data } = await apiClient.get("/account/export", { params: { format: "csv" }, responseType: "blob" });
+  return data;
 }

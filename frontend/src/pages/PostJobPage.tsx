@@ -1,17 +1,18 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Building2, FileStack } from "lucide-react";
-import { createJob, getJobById, updateJob, type JobTypeValue } from "../api/jobs";
+import { createJob, getJobById, getMyJobs, updateJob, type JobTypeValue } from "../api/jobs";
 import { getMyJobTemplates } from "../api/jobTemplates";
 import { getOnboardingStatus } from "../api/recruiters";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
-import type { JobTemplate } from "../types";
+import type { JobQualityScore, JobTemplate } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import FormField from "../components/ui/FormField";
 import EmptyState from "../components/ui/EmptyState";
 import IndiaLocationSelector from "../components/IndiaLocationSelector";
+import JobQualityScoreBadge from "../components/JobQualityScoreBadge";
 
 interface FieldErrors {
   title?: string;
@@ -52,8 +53,19 @@ export default function PostJobPage() {
   const [loadingJob, setLoadingJob] = useState(isEditMode);
   const [templates, setTemplates] = useState<JobTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [savedQualityScore, setSavedQualityScore] = useState<JobQualityScore | null>(null);
   const navigate = useNavigate();
   const toast = useToast();
+
+  async function fetchQualityScore(jobId: number) {
+    try {
+      const summaries = await getMyJobs();
+      const match = summaries.find((s) => s.job.id === jobId);
+      if (match) setSavedQualityScore(match.qualityScore);
+    } catch {
+      // Advisory-only — a failed refetch should never block the save flow.
+    }
+  }
 
   useEffect(() => {
     getOnboardingStatus()
@@ -147,9 +159,9 @@ export default function PostJobPage() {
 
     setLoading("save");
     try {
-      await updateJob(Number(id), buildPayload());
+      const updated = await updateJob(Number(id), buildPayload());
       toast.success("Job updated.");
-      navigate("/jobs/mine");
+      await fetchQualityScore(updated.id);
     } catch (err) {
       setFieldErrors({ general: getErrorMessage(err, "Failed to update job") });
     } finally {
@@ -170,7 +182,8 @@ export default function PostJobPage() {
     try {
       const job = await createJob({ ...buildPayload(), saveAsDraft });
       toast.success(saveAsDraft ? "Draft saved." : "Job posted successfully.");
-      navigate(saveAsDraft ? "/jobs/mine" : `/jobs/${job.id}`);
+      await fetchQualityScore(job.id);
+      if (!saveAsDraft) navigate(`/jobs/${job.id}`);
     } catch (err) {
       setFieldErrors({ general: getErrorMessage(err, "Failed to post job") });
     } finally {
@@ -203,6 +216,17 @@ export default function PostJobPage() {
             : "Fill in the details below, then save as a draft or publish right away."}
         </p>
       </div>
+
+      {savedQualityScore && (
+        <Card className="ui-card-padded" style={{ marginBottom: "1.5rem" }}>
+          <h3 className="form-section-title">Job quality</h3>
+          <p className="form-section-desc">Visible only to you — never shown to candidates.</p>
+          <JobQualityScoreBadge qualityScore={savedQualityScore} />
+          <div className="form-actions" style={{ marginTop: "1rem" }}>
+            <Button type="button" variant="secondary" onClick={() => navigate("/jobs/mine")}>Back to Manage Jobs</Button>
+          </div>
+        </Card>
+      )}
 
       {!isEditMode && templates.length > 0 && (
         <Card className="ui-card-padded" style={{ marginBottom: "1.5rem" }}>

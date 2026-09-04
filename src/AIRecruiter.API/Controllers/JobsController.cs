@@ -49,6 +49,15 @@ public class JobsController : ControllerBase
         return job is null ? NotFound() : Ok(job);
     }
 
+    [HttpPost("{id:int}/share")]
+    public async Task<IActionResult> RecordShare(int id, CancellationToken ct)
+    {
+        int? viewerUserId = User.Identity?.IsAuthenticated == true ? User.GetUserId() : null;
+        var visitorKey = viewerUserId.HasValue ? $"u:{viewerUserId}" : HashAnonymousVisitor();
+        await _jobPostingService.RecordShareAsync(id, visitorKey, ct);
+        return NoContent();
+    }
+
     [Authorize(Roles = "Recruiter")]
     [HttpPost]
     public async Task<ActionResult<JobPostingDto>> Create(CreateJobPostingRequest request, CancellationToken ct)

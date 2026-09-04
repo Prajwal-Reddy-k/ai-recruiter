@@ -79,3 +79,7 @@ export async function extendJobDeadline(jobId: number, applicationDeadlineUtc: s
   const { data } = await apiClient.patch<JobPosting>(`/jobs/${jobId}/deadline`, { applicationDeadlineUtc });
   return data;
 }
+
+export async function recordJobShare(jobId: number): Promise<void> {
+  await apiClient.post(`/jobs/${jobId}/share`);
+}

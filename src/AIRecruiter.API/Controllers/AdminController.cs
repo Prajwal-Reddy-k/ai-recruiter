@@ -1,6 +1,8 @@
 using AIRecruiter.API.Extensions;
 using AIRecruiter.Application.DTOs.Admin;
+using AIRecruiter.Application.DTOs.Companies;
 using AIRecruiter.Application.DTOs.Feedback;
+using AIRecruiter.Application.DTOs.Reviews;
 using AIRecruiter.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -82,4 +84,34 @@ public class AdminController : ControllerBase
 
     [HttpGet("audit-log")]
     public async Task<IActionResult> GetAuditLog(CancellationToken ct) => Ok(await _auditLog.GetAllAsync(ct));
+
+    [HttpGet("companies/pending-verification")]
+    public async Task<IActionResult> GetPendingCompanyVerifications(CancellationToken ct) => Ok(await _adminService.GetPendingCompanyVerificationsAsync(ct));
+
+    [HttpPost("companies/{id:int}/verification")]
+    public async Task<IActionResult> SetCompanyVerificationStatus(int id, SetCompanyVerificationStatusRequest request, CancellationToken ct)
+    {
+        await _adminService.SetCompanyVerificationStatusAsync(User.GetUserId(), id, request, ct);
+        return NoContent();
+    }
+
+    [HttpGet("reviews/pending")]
+    public async Task<IActionResult> GetPendingReviews(CancellationToken ct) => Ok(await _adminService.GetPendingReviewsAsync(ct));
+
+    [HttpPost("reviews/{id:int}/status")]
+    public async Task<IActionResult> SetReviewStatus(int id, SetReviewStatusRequest request, CancellationToken ct)
+    {
+        await _adminService.SetReviewStatusAsync(User.GetUserId(), id, request, ct);
+        return NoContent();
+    }
+
+    [HttpGet("users/pending-deletion")]
+    public async Task<IActionResult> GetPendingDeletionRequests(CancellationToken ct) => Ok(await _adminService.GetPendingDeletionRequestsAsync(ct));
+
+    [HttpPost("users/{id:int}/cancel-deletion")]
+    public async Task<IActionResult> AdminCancelDeletionRequest(int id, CancellationToken ct)
+    {
+        await _adminService.AdminCancelDeletionRequestAsync(User.GetUserId(), id, ct);
+        return NoContent();
+    }
 }

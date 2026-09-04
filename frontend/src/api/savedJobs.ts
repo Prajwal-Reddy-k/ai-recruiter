@@ -51,3 +51,13 @@ export async function setAlertActive(alertId: number, isActive: boolean): Promis
 export async function deleteAlert(alertId: number): Promise<void> {
   await apiClient.delete(`/candidates/me/alerts/${alertId}`);
 }
+
+export async function duplicateAlert(alertId: number): Promise<JobAlert> {
+  const { data } = await apiClient.post<JobAlert>(`/candidates/me/alerts/${alertId}/duplicate`);
+  return data;
+}
+
+export async function setDefaultAlert(alertId: number): Promise<JobAlert> {
+  const { data } = await apiClient.patch<JobAlert>(`/candidates/me/alerts/${alertId}/default`);
+  return data;
+}

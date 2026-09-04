@@ -61,7 +61,7 @@ public class AnalyticsService : IAnalyticsService
             .ToList();
 
         var viewsVsApplications = jobs
-            .Select(j => new JobViewsVsApplicationsDto(j.Id, j.Title, j.ViewCount, applications.Count(a => a.JobPostingId == j.Id)))
+            .Select(j => new JobViewsVsApplicationsDto(j.Id, j.Title, j.ViewCount, applications.Count(a => a.JobPostingId == j.Id), j.ShareCount))
             .OrderByDescending(x => x.ViewCount)
             .ToList();
 

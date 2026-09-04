@@ -48,6 +48,19 @@ public class ModerationService : IModerationService
             Details = string.IsNullOrWhiteSpace(request.Details) ? null : request.Details.Trim(),
         };
         _db.Reports.Add(report);
+
+        // A flagged review is pulled from public view immediately, pending Admin review —
+        // same "hide first, review later" precedent as a moderated-out job posting.
+        if (request.EntityType == ReportedEntityType.Review)
+        {
+            var review = await _db.CompanyReviews.FirstOrDefaultAsync(r => r.Id == request.EntityId, ct);
+            if (review is not null && review.Status == ReviewStatus.Published)
+            {
+                review.Status = ReviewStatus.Flagged;
+                review.UpdatedAt = DateTime.UtcNow;
+            }
+        }
+
         await _db.SaveChangesAsync(ct);
 
         await _auditLog.LogAsync(reportedByUserId, null, "ReportSubmitted", request.EntityType.ToString(), request.EntityId,
@@ -60,6 +73,7 @@ public class ModerationService : IModerationService
         ReportedEntityType.Company => _db.Companies.AnyAsync(c => c.Id == entityId, ct),
         ReportedEntityType.Message => _db.Messages.AnyAsync(m => m.Id == entityId, ct),
         ReportedEntityType.User => _db.Users.AnyAsync(u => u.Id == entityId, ct),
+        ReportedEntityType.Review => _db.CompanyReviews.AnyAsync(r => r.Id == entityId, ct),
         _ => Task.FromResult(false),
     };
 }

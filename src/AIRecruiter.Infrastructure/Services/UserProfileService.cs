@@ -104,7 +104,11 @@ public class UserProfileService : IUserProfileService
         await _auditLog.LogAsync(userId, user.Role.ToString(), "PasswordChanged", "User", user.Id, null, ct);
     }
 
-    public async Task RequestAccountDeletionAsync(int userId, RequestAccountDeletionRequest request, CancellationToken ct = default)
+    /// <summary>The grace period before JobLifecycleSweepService actually deactivates the
+    /// account — matches the existing 14-day invitation-expiry precedent elsewhere.</summary>
+    private static readonly TimeSpan DeletionGracePeriod = TimeSpan.FromDays(14);
+
+    public async Task<AccountDeletionStatusDto> RequestAccountDeletionAsync(int userId, RequestAccountDeletionRequest request, CancellationToken ct = default)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
             ?? throw new NotFoundException("User not found.");
@@ -116,14 +120,59 @@ public class UserProfileService : IUserProfileService
                 new Dictionary<string, string> { ["password"] = "Incorrect password." });
         }
 
-        // Deliberately non-destructive: deactivates + logs the account out everywhere via the
-        // same mechanism as AdminService.SuspendUserAsync, rather than erasing data. Reversible
-        // by an Admin via ReactivateUserAsync — there is no automated hard-delete workflow.
-        user.IsActive = false;
-        user.SecurityStamp = Guid.NewGuid().ToString("N");
+        // Deliberately non-destructive and NOT immediate: starts a grace period rather than
+        // deactivating right away, so the account stays active and usable, and the request can
+        // be cancelled — JobLifecycleSweepService performs the actual deactivation (the same
+        // IsActive=false + SecurityStamp-rotation mechanism AdminService.SuspendUserAsync uses)
+        // once the grace period has elapsed and the request hasn't been cancelled.
+        user.DeletionRequestedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
 
         await _auditLog.LogAsync(userId, user.Role.ToString(), "AccountDeletionRequested", "User", user.Id, null, ct);
+
+        return ToDeletionStatusDto(user);
+    }
+
+    public async Task<AccountDeletionStatusDto> CancelAccountDeletionAsync(int userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new NotFoundException("User not found.");
+
+        user.DeletionRequestedAt = null;
+        await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(userId, user.Role.ToString(), "AccountDeletionCancelled", "User", user.Id, null, ct);
+
+        return ToDeletionStatusDto(user);
+    }
+
+    public async Task<PrivacySummaryDto> GetPrivacySummaryAsync(int userId, CancellationToken ct = default)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct)
+            ?? throw new NotFoundException("User not found.");
+
+        var candidateProfile = await _db.CandidateProfiles.FirstOrDefaultAsync(c => c.UserId == userId, ct);
+        var preferences = await _db.NotificationPreferences.FirstOrDefaultAsync(p => p.UserId == userId, ct);
+
+        return new PrivacySummaryDto(
+            candidateProfile?.ProfileVisibility.ToString(),
+            preferences?.MessagesEnabled ?? true,
+            preferences?.ApplicationsEnabled ?? true,
+            preferences?.InterviewsEnabled ?? true,
+            preferences?.InvitationsEnabled ?? true,
+            ToDeletionStatusDto(user));
+    }
+
+    private static AccountDeletionStatusDto ToDeletionStatusDto(User user)
+    {
+        if (user.DeletionRequestedAt is not { } requestedAt)
+        {
+            return new AccountDeletionStatusDto(false, null, null, null);
+        }
+
+        var scheduledAt = requestedAt + DeletionGracePeriod;
+        var daysRemaining = Math.Max(0, (int)Math.Ceiling((scheduledAt - DateTime.UtcNow).TotalDays));
+        return new AccountDeletionStatusDto(true, requestedAt, scheduledAt, daysRemaining);
     }
 
     private static UserDetailsDto ToDto(User user) => new(user.Id, user.FullName, user.Email, user.PhoneNumber, user.Role.ToString());

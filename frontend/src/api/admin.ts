@@ -1,5 +1,5 @@
 import apiClient from "./client";
-import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, Report } from "../types";
+import type { AdminCompany, AdminJob, AdminUser, AuditLogEntry, PendingCompanyReview, PendingCompanyVerification, Report, CompanyVerificationStatusName, ReviewStatusName } from "../types";
 
 export type ModerationStatusValue = "Approved" | "Hidden" | "Removed";
 const moderationStatusToNumber: Record<ModerationStatusValue, number> = {
@@ -65,4 +65,31 @@ export async function reactivateUser(userId: number): Promise<void> {
 export async function getAuditLog(): Promise<AuditLogEntry[]> {
   const { data } = await apiClient.get<AuditLogEntry[]>("/admin/audit-log");
   return data;
+}
+
+export async function getPendingCompanyVerifications(): Promise<PendingCompanyVerification[]> {
+  const { data } = await apiClient.get<PendingCompanyVerification[]>("/admin/companies/pending-verification");
+  return data;
+}
+
+export async function setCompanyVerificationStatus(companyId: number, status: CompanyVerificationStatusName, note?: string): Promise<void> {
+  await apiClient.post(`/admin/companies/${companyId}/verification`, { status, note });
+}
+
+export async function getPendingReviews(): Promise<PendingCompanyReview[]> {
+  const { data } = await apiClient.get<PendingCompanyReview[]>("/admin/reviews/pending");
+  return data;
+}
+
+export async function setReviewStatus(reviewId: number, status: ReviewStatusName, moderationNote?: string): Promise<void> {
+  await apiClient.post(`/admin/reviews/${reviewId}/status`, { status, moderationNote });
+}
+
+export async function getPendingDeletionRequests(): Promise<AdminUser[]> {
+  const { data } = await apiClient.get<AdminUser[]>("/admin/users/pending-deletion");
+  return data;
+}
+
+export async function adminCancelDeletionRequest(userId: number): Promise<void> {
+  await apiClient.post(`/admin/users/${userId}/cancel-deletion`);
 }

@@ -9,6 +9,7 @@ import Button from "../components/ui/Button";
 import FormField from "../components/ui/FormField";
 import IndiaLocationSelector from "../components/IndiaLocationSelector";
 import YourDetailsCard from "../components/YourDetailsCard";
+import CompanyVerificationCard from "../components/CompanyVerificationCard";
 
 interface FieldErrors {
   companyName?: string;
@@ -186,6 +187,8 @@ export default function OnboardingPage() {
           </div>
         </form>
       </Card>
+
+      {wasOnboarded && <CompanyVerificationCard />}
     </div>
   );
 }

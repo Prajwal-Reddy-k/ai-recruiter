@@ -1,4 +1,6 @@
 using AIRecruiter.Application.DTOs.Admin;
+using AIRecruiter.Application.DTOs.Companies;
+using AIRecruiter.Application.DTOs.Reviews;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Domain.Entities;
 using AIRecruiter.Domain.Enums;
@@ -10,7 +12,7 @@ namespace AIRecruiter.UnitTests.Services;
 
 public class AdminServiceTests
 {
-    private static AdminService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db));
+    private static AdminService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateNotifications(db));
 
     private static async Task<(User Admin, User Recruiter, User Candidate)> SeedAsync(AppDbContext db)
     {
@@ -132,5 +134,188 @@ public class AdminServiceTests
         var reloaded = db.Reports.First(r => r.Id == report.Id);
         Assert.Equal(ReportStatus.Open, reloaded.Status);
         Assert.Equal("Internal note only", reloaded.ModerationNote);
+    }
+
+    private static async Task<(User Admin, User Owner, Company Company)> SeedForVerificationAsync(AppDbContext db)
+    {
+        var admin = new User { FullName = "Ops Admin", Email = "admin2@example.com", Role = UserRole.Admin, PasswordHash = "x", SecurityStamp = "s0" };
+        var owner = new User { FullName = "Owen Owner", Email = "owen2@example.com", Role = UserRole.Recruiter, PasswordHash = "x", SecurityStamp = "s1" };
+        db.Users.AddRange(admin, owner);
+        await db.SaveChangesAsync();
+
+        var company = new Company { Name = "Acme Corp", VerificationStatus = CompanyVerificationStatus.Pending, VerificationSubmittedAtUtc = DateTime.UtcNow };
+        db.Companies.Add(company);
+        await db.SaveChangesAsync();
+
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = owner.Id, CompanyId = company.Id, CompanyRole = CompanyRole.Owner });
+        await db.SaveChangesAsync();
+
+        return (admin, owner, company);
+    }
+
+    [Fact]
+    public async Task GetPendingCompanyVerificationsAsync_ReturnsOnlyPendingCompanies()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, _, company) = await SeedForVerificationAsync(db);
+        db.Companies.Add(new Company { Name = "Verified Co", VerificationStatus = CompanyVerificationStatus.Verified });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var pending = await sut.GetPendingCompanyVerificationsAsync();
+
+        Assert.Single(pending);
+        Assert.Equal(company.Id, pending[0].CompanyId);
+    }
+
+    [Fact]
+    public async Task SetCompanyVerificationStatusAsync_Approve_UpdatesStatusAndNotifiesOwner()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, owner, company) = await SeedForVerificationAsync(db);
+        var sut = CreateSut(db);
+
+        await sut.SetCompanyVerificationStatusAsync(admin.Id, company.Id, new SetCompanyVerificationStatusRequest("Verified", null));
+
+        var reloaded = db.Companies.First(c => c.Id == company.Id);
+        Assert.Equal(CompanyVerificationStatus.Verified, reloaded.VerificationStatus);
+        Assert.Equal(admin.Id, reloaded.VerificationReviewedByUserId);
+        Assert.Contains(db.Notifications, n => n.UserId == owner.Id && n.Type.StartsWith("CompanyVerification"));
+        Assert.Contains(db.AuditLogEntries, e => e.ActorUserId == admin.Id && e.ActionType == "CompanyVerificationVerified");
+    }
+
+    [Fact]
+    public async Task SetCompanyVerificationStatusAsync_Reject_RecordsInternalNote()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, company) = await SeedForVerificationAsync(db);
+        var sut = CreateSut(db);
+
+        await sut.SetCompanyVerificationStatusAsync(admin.Id, company.Id, new SetCompanyVerificationStatusRequest("Rejected", "Business email domain does not match website."));
+
+        var reloaded = db.Companies.First(c => c.Id == company.Id);
+        Assert.Equal(CompanyVerificationStatus.Rejected, reloaded.VerificationStatus);
+        Assert.Equal("Business email domain does not match website.", reloaded.VerificationNote);
+    }
+
+    [Fact]
+    public async Task SetCompanyVerificationStatusAsync_NeedsMoreInfo_UpdatesStatus()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, company) = await SeedForVerificationAsync(db);
+        var sut = CreateSut(db);
+
+        await sut.SetCompanyVerificationStatusAsync(admin.Id, company.Id, new SetCompanyVerificationStatusRequest("NeedsMoreInfo", "Please attach a registration certificate."));
+
+        var reloaded = db.Companies.First(c => c.Id == company.Id);
+        Assert.Equal(CompanyVerificationStatus.NeedsMoreInfo, reloaded.VerificationStatus);
+    }
+
+    [Fact]
+    public async Task SetCompanyVerificationStatusAsync_InvalidStatus_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, company) = await SeedForVerificationAsync(db);
+        var sut = CreateSut(db);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => sut.SetCompanyVerificationStatusAsync(admin.Id, company.Id, new SetCompanyVerificationStatusRequest("NotARealStatus", null)));
+    }
+
+    private static async Task<(User Admin, User Candidate, Company Company, CompanyReview Review)> SeedForReviewModerationAsync(AppDbContext db)
+    {
+        var admin = new User { FullName = "Ops Admin", Email = "admin3@example.com", Role = UserRole.Admin, PasswordHash = "x" };
+        var candidateUser = new User { FullName = "Casey Candidate", Email = "casey3@example.com", Role = UserRole.Candidate, PasswordHash = "x" };
+        db.Users.AddRange(admin, candidateUser);
+        await db.SaveChangesAsync();
+
+        var candidateProfile = new CandidateProfile { UserId = candidateUser.Id };
+        db.CandidateProfiles.Add(candidateProfile);
+        var company = new Company { Name = "Acme Corp" };
+        db.Companies.Add(company);
+        await db.SaveChangesAsync();
+
+        var review = new CompanyReview
+        {
+            CompanyId = company.Id,
+            CandidateProfileId = candidateProfile.Id,
+            OverallRating = 4, WorkCultureRating = 4, InterviewExperienceRating = 4, WorkLifeBalanceRating = 4, CareerGrowthRating = 4,
+            Title = "Good place", Pros = "Pros", Cons = "Cons",
+            RelationshipType = ReviewerRelationshipType.Applicant,
+            Status = ReviewStatus.Pending,
+        };
+        db.CompanyReviews.Add(review);
+        await db.SaveChangesAsync();
+
+        return (admin, candidateUser, company, review);
+    }
+
+    [Fact]
+    public async Task GetPendingReviewsAsync_ReturnsPendingAndFlaggedReviews()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, _, _, review) = await SeedForReviewModerationAsync(db);
+        var sut = CreateSut(db);
+
+        var pending = await sut.GetPendingReviewsAsync();
+
+        Assert.Single(pending);
+        Assert.Equal(review.Id, pending[0].Id);
+    }
+
+    [Fact]
+    public async Task SetReviewStatusAsync_Approve_PublishesReview()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, _, review) = await SeedForReviewModerationAsync(db);
+        var sut = CreateSut(db);
+
+        await sut.SetReviewStatusAsync(admin.Id, review.Id, new SetReviewStatusRequest("Published", null));
+
+        var reloaded = db.CompanyReviews.First(r => r.Id == review.Id);
+        Assert.Equal(ReviewStatus.Published, reloaded.Status);
+        Assert.Equal(admin.Id, reloaded.ReviewedByUserId);
+    }
+
+    [Fact]
+    public async Task SetReviewStatusAsync_InvalidStatus_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, _, review) = await SeedForReviewModerationAsync(db);
+        var sut = CreateSut(db);
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => sut.SetReviewStatusAsync(admin.Id, review.Id, new SetReviewStatusRequest("NotAStatus", null)));
+    }
+
+    [Fact]
+    public async Task GetPendingDeletionRequestsAsync_ReturnsOnlyActiveUsersWithPendingRequest()
+    {
+        using var db = TestDbContextFactory.Create();
+        var pendingUser = new User { FullName = "Pending Deletion", Email = "pending@example.com", Role = UserRole.Candidate, PasswordHash = "x", DeletionRequestedAt = DateTime.UtcNow.AddDays(-1) };
+        var normalUser = new User { FullName = "Normal User", Email = "normal@example.com", Role = UserRole.Candidate, PasswordHash = "x" };
+        db.Users.AddRange(pendingUser, normalUser);
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var pending = await sut.GetPendingDeletionRequestsAsync();
+
+        Assert.Single(pending);
+        Assert.Equal(pendingUser.Id, pending[0].Id);
+    }
+
+    [Fact]
+    public async Task AdminCancelDeletionRequestAsync_ClearsTheFlag()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (admin, _, _, _) = await SeedForReviewModerationAsync(db);
+        var pendingUser = new User { FullName = "Pending Deletion", Email = "pending2@example.com", Role = UserRole.Candidate, PasswordHash = "x", DeletionRequestedAt = DateTime.UtcNow.AddDays(-1) };
+        db.Users.Add(pendingUser);
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        await sut.AdminCancelDeletionRequestAsync(admin.Id, pendingUser.Id);
+
+        Assert.Null(db.Users.First(u => u.Id == pendingUser.Id).DeletionRequestedAt);
     }
 }

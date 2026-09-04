@@ -22,6 +22,7 @@ public class JobPosting : BaseEntity
     public JobStatus Status { get; set; } = JobStatus.Draft;
     public ModerationStatus ModerationStatus { get; set; } = ModerationStatus.Approved;
     public int ViewCount { get; set; }
+    public int ShareCount { get; set; }
     public DateTime? PublishedAt { get; set; }
 
     /// <summary>Applications stop being accepted, and the job auto-closes, once this passes

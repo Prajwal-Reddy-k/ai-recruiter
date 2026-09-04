@@ -175,22 +175,25 @@ public class UserProfileServiceTests
     }
 
     [Fact]
-    public async Task RequestAccountDeletionAsync_CorrectPassword_DeactivatesAndRotatesStamp()
+    public async Task RequestAccountDeletionAsync_CorrectPassword_StartsGracePeriodWithoutDeactivating()
     {
         using var db = TestDbContextFactory.Create();
         var user = await SeedWithPasswordAsync(db, "MyPassw0rd!");
         var originalStamp = user.SecurityStamp;
         var sut = CreateSut(db);
 
-        await sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("MyPassw0rd!"));
+        var status = await sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("MyPassw0rd!"));
 
         var reloaded = db.Users.First(u => u.Id == user.Id);
-        Assert.False(reloaded.IsActive);
-        Assert.NotEqual(originalStamp, reloaded.SecurityStamp);
+        Assert.True(reloaded.IsActive);
+        Assert.NotNull(reloaded.DeletionRequestedAt);
+        Assert.Equal(originalStamp, reloaded.SecurityStamp);
+        Assert.True(status.IsPending);
+        Assert.Equal(14, status.DaysRemaining);
     }
 
     [Fact]
-    public async Task RequestAccountDeletionAsync_WrongPassword_ThrowsValidationAndDoesNotDeactivate()
+    public async Task RequestAccountDeletionAsync_WrongPassword_ThrowsValidationAndDoesNotSetDeletionFlag()
     {
         using var db = TestDbContextFactory.Create();
         var user = await SeedWithPasswordAsync(db, "MyPassw0rd!");
@@ -199,6 +202,22 @@ public class UserProfileServiceTests
         await Assert.ThrowsAsync<ValidationException>(
             () => sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("WrongPassword!")));
 
-        Assert.True(db.Users.First(u => u.Id == user.Id).IsActive);
+        var reloaded = db.Users.First(u => u.Id == user.Id);
+        Assert.True(reloaded.IsActive);
+        Assert.Null(reloaded.DeletionRequestedAt);
+    }
+
+    [Fact]
+    public async Task CancelAccountDeletionAsync_ClearsThePendingFlag()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = await SeedWithPasswordAsync(db, "MyPassw0rd!");
+        var sut = CreateSut(db);
+        await sut.RequestAccountDeletionAsync(user.Id, new RequestAccountDeletionRequest("MyPassw0rd!"));
+
+        var status = await sut.CancelAccountDeletionAsync(user.Id);
+
+        Assert.False(status.IsPending);
+        Assert.Null(db.Users.First(u => u.Id == user.Id).DeletionRequestedAt);
     }
 }

@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Award, Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Mail, Search, Sparkles, Target, UserRound } from "lucide-react";
+import { ArrowRight, Award, Bell, Bookmark, CalendarClock, ClipboardList, Eye, FileText, Heart, Mail, Search, Sparkles, Target, UserRound } from "lucide-react";
 import { getCandidateDashboard } from "../api/dashboard";
 import { acceptInvitation, declineInvitation, dismissInvitation, getMyInvitations } from "../api/invitations";
+import { getFollowedCompanies, unfollowCompany, updateFollowNotifyPreference } from "../api/follows";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { getErrorMessage } from "../utils/errors";
-import type { CandidateDashboard, Invitation, JobPosting } from "../types";
+import type { CandidateDashboard, FollowedCompany, Invitation, JobPosting } from "../types";
 import { toIST } from "../utils/format";
 import Card from "../components/ui/Card";
 import StatCard from "../components/ui/StatCard";
@@ -34,6 +35,7 @@ export default function CandidateDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [followedCompanies, setFollowedCompanies] = useState<FollowedCompany[]>([]);
 
   useEffect(() => {
     getCandidateDashboard()
@@ -43,7 +45,29 @@ export default function CandidateDashboardPage() {
     getMyInvitations()
       .then((all) => setInvitations(all.filter((i) => i.status === "Sent" || i.status === "Viewed")))
       .catch(() => setInvitations([]));
+    getFollowedCompanies()
+      .then(setFollowedCompanies)
+      .catch(() => setFollowedCompanies([]));
   }, []);
+
+  async function handleUnfollowCompany(companyId: number) {
+    try {
+      await unfollowCompany(companyId);
+      setFollowedCompanies((prev) => prev.filter((f) => f.companyId !== companyId));
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to unfollow company"));
+    }
+  }
+
+  async function handleToggleNotify(companyId: number, notify: boolean) {
+    setFollowedCompanies((prev) => prev.map((f) => (f.companyId === companyId ? { ...f, notifyOnNewJob: notify } : f)));
+    try {
+      await updateFollowNotifyPreference(companyId, notify);
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update notification preference"));
+      setFollowedCompanies((prev) => prev.map((f) => (f.companyId === companyId ? { ...f, notifyOnNewJob: !notify } : f)));
+    }
+  }
 
   async function handleAccept(id: number) {
     try {
@@ -280,6 +304,35 @@ export default function CandidateDashboardPage() {
           ) : (
             <ul className="job-list-compact">
               {dashboard.savedJobs.map((job) => <JobRow key={job.id} job={job} />)}
+            </ul>
+          )}
+        </Card>
+
+        <Card>
+          <h2><Heart size={18} /> Followed companies</h2>
+          {followedCompanies.length === 0 ? (
+            <p className="hint">Follow a company from its profile page to get notified about new jobs.</p>
+          ) : (
+            <ul className="job-list-compact">
+              {followedCompanies.map((f) => (
+                <li key={f.companyId} className="job-card job-card-compact">
+                  <Link to={`/companies/${f.companyId}`}>
+                    <h4>{f.companyName}</h4>
+                  </Link>
+                  {f.industry && <p className="hint">{f.industry}</p>}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "0.4rem" }}>
+                    <label className="filter-option" style={{ padding: 0 }}>
+                      <input
+                        type="checkbox"
+                        checked={f.notifyOnNewJob}
+                        onChange={(e) => handleToggleNotify(f.companyId, e.target.checked)}
+                      />
+                      Notify me of new jobs
+                    </label>
+                    <button type="button" className="link-button" onClick={() => handleUnfollowCompany(f.companyId)}>Unfollow</button>
+                  </div>
+                </li>
+              ))}
             </ul>
           )}
         </Card>

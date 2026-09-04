@@ -13,4 +13,8 @@ public interface IAuditLogService
 
     Task<IReadOnlyList<AuditLogEntryDto>> GetAllAsync(CancellationToken ct = default);
     Task<IReadOnlyList<AuditLogEntryDto>> GetForCompanyAsync(int companyId, CancellationToken ct = default);
+
+    /// <summary>Strictly self-scoped — only entries where this exact user is the actor.
+    /// Never the broader team-wide scope GetForCompanyAsync uses.</summary>
+    Task<IReadOnlyList<AuditLogEntryDto>> GetForUserAsync(int userId, string? actionTypeFilter, DateTime? from, DateTime? to, CancellationToken ct = default);
 }

@@ -20,11 +20,13 @@ public class OfferService : IOfferService
 
     private readonly AppDbContext _db;
     private readonly INotificationService _notifications;
+    private readonly IAuditLogService _auditLog;
 
-    public OfferService(AppDbContext db, INotificationService notifications)
+    public OfferService(AppDbContext db, INotificationService notifications, IAuditLogService auditLog)
     {
         _db = db;
         _notifications = notifications;
+        _auditLog = auditLog;
     }
 
     public async Task<OfferDto> CreateDraftAsync(int recruiterUserId, int jobApplicationId, CreateOfferRequest request, CancellationToken ct = default)
@@ -62,6 +64,8 @@ public class OfferService : IOfferService
         };
         _db.Offers.Add(offer);
         await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(recruiterUserId, "Recruiter", "OfferCreated", "Offer", offer.Id, new { application.JobPosting.Title }, ct);
 
         return await ToDtoAsync(offer.Id, ct);
     }
@@ -110,6 +114,7 @@ public class OfferService : IOfferService
         await _notifications.NotifyAsync(
             application.CandidateProfile.UserId, "OfferSent",
             $"You've received a job offer for {application.JobPosting.Title}.", "Offer", offer.Id, ct);
+        await _auditLog.LogAsync(recruiterUserId, "Recruiter", "OfferSent", "Offer", offer.Id, new { application.JobPosting.Title }, ct);
 
         return await ToDtoAsync(offer.Id, ct);
     }
@@ -124,6 +129,8 @@ public class OfferService : IOfferService
 
         await ChangeStatusAsync(offer, OfferStatus.Withdrawn, recruiterUserId, null, ct);
         await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(recruiterUserId, "Recruiter", "OfferWithdrawn", "Offer", offer.Id, null, ct);
 
         return await ToDtoAsync(offer.Id, ct);
     }
@@ -227,6 +234,7 @@ public class OfferService : IOfferService
             request.Accept ? "OfferAccepted" : "OfferDeclined",
             $"{note} for {application.JobPosting.Title}.",
             "Offer", offer.Id, ct);
+        await _auditLog.LogAsync(candidateUserId, "Candidate", request.Accept ? "OfferAccepted" : "OfferDeclined", "Offer", offer.Id, new { application.JobPosting.Title }, ct);
 
         return await ToDtoAsync(offer.Id, ct);
     }

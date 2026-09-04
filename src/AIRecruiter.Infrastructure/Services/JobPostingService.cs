@@ -16,6 +16,8 @@ public class JobPostingService : IJobPostingService
     private readonly IndiaLocationValidator _locationValidator;
     private readonly IAuditLogService _auditLog;
     private readonly IViewDeduplicationService _viewDedup;
+    private readonly INotificationService _notifications;
+    private readonly ISalaryInsightsService _salaryInsights;
 
     /// <summary>Allowed job-status transitions, keyed by current status. Anything not listed
     /// here (including any transition out of Archived, which is terminal) is rejected.</summary>
@@ -27,12 +29,14 @@ public class JobPostingService : IJobPostingService
         [JobStatus.Archived] = Array.Empty<JobStatus>(),
     };
 
-    public JobPostingService(AppDbContext db, IndiaLocationValidator locationValidator, IAuditLogService auditLog, IViewDeduplicationService viewDedup)
+    public JobPostingService(AppDbContext db, IndiaLocationValidator locationValidator, IAuditLogService auditLog, IViewDeduplicationService viewDedup, INotificationService notifications, ISalaryInsightsService salaryInsights)
     {
         _db = db;
         _locationValidator = locationValidator;
         _auditLog = auditLog;
         _viewDedup = viewDedup;
+        _notifications = notifications;
+        _salaryInsights = salaryInsights;
     }
 
     public async Task<IReadOnlyList<JobPostingDto>> GetOpenJobsAsync(string? search, CancellationToken ct = default)
@@ -145,6 +149,12 @@ public class JobPostingService : IJobPostingService
 
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", status == JobStatus.Draft ? "JobDraftSaved" : "JobCreated", "JobPosting", job.Id, new { job.Title }, ct);
 
+        if (status == JobStatus.Open)
+        {
+            await NotifyFollowersOfNewJobAsync(job, ct);
+            await NotifySavedSearchMatchesAsync(job, ct);
+        }
+
         return ToDto(job);
     }
 
@@ -214,9 +224,32 @@ public class JobPostingService : IJobPostingService
             .Select(g => new { JobPostingId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.JobPostingId, x => x.Count, ct);
 
-        return jobs
-            .Select(j => new RecruiterJobSummaryDto(ToDto(j), applicationCounts.GetValueOrDefault(j.Id, 0)))
-            .ToList();
+        var results = new List<RecruiterJobSummaryDto>();
+        foreach (var j in jobs)
+        {
+            var guidance = await _salaryInsights.GetGuidanceForJobAsync(j.Title, j.City, j.State, j.IsRemote, j.MinExperienceYears, j.MinSalary, j.MaxSalary, ct);
+            results.Add(new RecruiterJobSummaryDto(ToDto(j), applicationCounts.GetValueOrDefault(j.Id, 0), JobQualityScorer.Calculate(BuildQualityInput(j)), guidance));
+        }
+        return results;
+    }
+
+    /// <summary>Only ever called for the owning recruiter's own view (GetMyJobsAsync) — never
+    /// for a public/candidate-facing read path, so the score can never leak publicly.</summary>
+    private static JobQualityInput BuildQualityInput(JobPosting j)
+    {
+        var skillCount = (j.RequiredSkillsCsv ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries).Length;
+        var companyFieldsFilled = new[] { j.Company.Website, j.Company.Description, j.Company.LogoUrl, j.Company.Industry, j.Company.Size }
+            .Count(f => !string.IsNullOrWhiteSpace(f));
+
+        return new JobQualityInput(
+            HasClearTitle: j.Title.Trim().Length >= 10,
+            HasCompleteDescription: j.Description.Trim().Length >= 200,
+            HasEnoughRequiredSkills: skillCount >= 3,
+            HasExperienceRange: j.MinExperienceYears.HasValue || j.MaxExperienceYears.HasValue,
+            HasLocationOrRemote: j.IsRemote || (!string.IsNullOrWhiteSpace(j.City) && !string.IsNullOrWhiteSpace(j.State)),
+            HasSalaryInfo: j.MinSalary.HasValue || j.MaxSalary.HasValue,
+            HasCompleteCompanyProfile: companyFieldsFilled >= 3,
+            HasApplicationDeadline: j.ApplicationDeadlineUtc.HasValue);
     }
 
     public async Task<IReadOnlyList<JobPostingDto>> GetByCompanyAsync(int companyId, CancellationToken ct = default)
@@ -255,6 +288,8 @@ public class JobPostingService : IJobPostingService
             throw new ConflictException("INVALID_TRANSITION", $"A job cannot move from {job.Status} to {request.Status}.");
         }
 
+        var isFirstPublish = request.Status == JobStatus.Open && job.Status == JobStatus.Draft;
+
         if (request.Status == JobStatus.Open)
         {
             // Publishing (from Draft or reopening from Closed) must satisfy full validation.
@@ -271,6 +306,14 @@ public class JobPostingService : IJobPostingService
         await _db.SaveChangesAsync(ct);
 
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", "JobStatusChanged", "JobPosting", job.Id, new { job.Title, Status = job.Status.ToString() }, ct);
+
+        // Only a genuine first publish (Draft -> Open) notifies followers — reopening a
+        // previously-published job from Closed should not re-notify.
+        if (isFirstPublish)
+        {
+            await NotifyFollowersOfNewJobAsync(job, ct);
+            await NotifySavedSearchMatchesAsync(job, ct);
+        }
 
         return ToDto(job);
     }
@@ -345,6 +388,64 @@ public class JobPostingService : IJobPostingService
             new { job.Title, ApplicationDeadlineUtc = applicationDeadlineUtc }, ct);
 
         return ToDto(job);
+    }
+
+    public async Task RecordShareAsync(int jobId, string? visitorKey, CancellationToken ct = default)
+    {
+        var job = await _db.JobPostings.FirstOrDefaultAsync(j => j.Id == jobId, ct);
+        if (job is null) return;
+
+        // Distinct dedup key prefix ("share:") so this never collides with the separate
+        // view-count dedup window for the same visitor/job pair.
+        if (visitorKey is null || _viewDedup.ShouldCountView($"share:{visitorKey}", jobId))
+        {
+            job.ShareCount++;
+            await _db.SaveChangesAsync(ct);
+        }
+    }
+
+    /// <summary>Pushed inline at publish time — JobAlertService's matching is pull-only
+    /// (computed on dashboard load), so this is the only push hook for "notify followers of
+    /// a new job." Queries CompanyFollows directly (no new service dependency), matching how
+    /// JobApplicationService queries Referrals directly for the referral auto-link.</summary>
+    private async Task NotifyFollowersOfNewJobAsync(JobPosting job, CancellationToken ct)
+    {
+        var followerUserIds = await _db.CompanyFollows
+            .Where(f => f.CompanyId == job.CompanyId && f.NotifyOnNewJob)
+            .Select(f => f.CandidateProfile.UserId)
+            .ToListAsync(ct);
+
+        foreach (var followerUserId in followerUserIds)
+        {
+            await _notifications.NotifyAsync(
+                followerUserId, "CompanyNewJob",
+                $"{job.Company.Name} just posted a new job: {job.Title}.", "JobPosting", job.Id, ct);
+        }
+    }
+
+    /// <summary>Notifies candidates whose active saved search matches this newly published
+    /// job — uses the same JobAlertMatcher predicate JobAlertService uses for the candidate's
+    /// own "matching jobs" results, just applied in the opposite direction (one job against
+    /// many alerts). A candidate with several matching saved searches gets one notification,
+    /// not several.</summary>
+    private async Task NotifySavedSearchMatchesAsync(JobPosting job, CancellationToken ct)
+    {
+        var activeAlerts = await _db.JobAlerts
+            .Include(a => a.CandidateProfile)
+            .Where(a => a.IsActive)
+            .ToListAsync(ct);
+
+        var matchingUserIds = activeAlerts
+            .Where(a => JobAlertMatcher.Matches(a, job))
+            .Select(a => a.CandidateProfile.UserId)
+            .Distinct();
+
+        foreach (var userId in matchingUserIds)
+        {
+            await _notifications.NotifyAsync(
+                userId, "SavedSearchMatch",
+                $"A new job matches one of your saved searches: {job.Title} at {job.Company.Name}.", "JobPosting", job.Id, ct);
+        }
     }
 
     private static JobPostingDto ToDto(JobPosting j) => JobPostingMapper.ToDto(j);

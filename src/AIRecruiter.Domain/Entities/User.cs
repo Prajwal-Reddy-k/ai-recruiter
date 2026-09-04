@@ -18,6 +18,11 @@ public class User : BaseEntity
     /// revocation this stateless-JWT design supports without a token blocklist.</summary>
     public string SecurityStamp { get; set; } = Guid.NewGuid().ToString("N");
 
+    /// <summary>Set when the user requests account deletion; cleared if they cancel during
+    /// the grace period. JobLifecycleSweepService deactivates the account once this is more
+    /// than the grace period in the past — see UserProfileService.RequestAccountDeletionAsync.</summary>
+    public DateTime? DeletionRequestedAt { get; set; }
+
     public CandidateProfile? CandidateProfile { get; set; }
     public RecruiterProfile? RecruiterProfile { get; set; }
     public ICollection<PasswordResetCode> PasswordResetCodes { get; set; } = new List<PasswordResetCode>();

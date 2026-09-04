@@ -502,6 +502,9 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Property<string>("Benefits")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("BusinessEmail")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("City")
                         .HasColumnType("nvarchar(max)");
 
@@ -539,12 +542,153 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("VerificationDocumentReference")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("VerificationNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("VerificationReviewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("VerificationReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("VerificationStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("VerificationSubmittedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Website")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
+                    b.HasIndex("VerificationReviewedByUserId");
+
                     b.ToTable("Companies");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CompanyFollow", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("NotifyOnNewJob")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("CandidateProfileId", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("CompanyFollows");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CompanyReview", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdviceToManagement")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CareerGrowthRating")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Cons")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("InterviewExperienceRating")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ModerationNote")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("OverallRating")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Pros")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RecruiterRespondedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecruiterResponse")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RecruiterResponseByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RelationshipType")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReviewedByUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("WorkCultureRating")
+                        .HasColumnType("int");
+
+                    b.Property<int>("WorkLifeBalanceRating")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RecruiterResponseByUserId");
+
+                    b.HasIndex("ReviewedByUserId");
+
+                    b.HasIndex("CandidateProfileId", "CompanyId")
+                        .IsUnique();
+
+                    b.ToTable("CompanyReviews");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.CoverLetterTemplate", b =>
@@ -882,16 +1026,36 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
                     b.Property<bool?>("IsRemote")
                         .HasColumnType("bit");
 
                     b.Property<int?>("JobType")
                         .HasColumnType("int");
 
+                    b.Property<string>("Keyword")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<decimal?>("MaxSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
                     b.Property<int?>("MinExperienceYears")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("MinSalary")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("SkillsCsv")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SortOption")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("State")
@@ -1052,6 +1216,9 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("RequiredSkillsCsv")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ShareCount")
+                        .HasColumnType("int");
 
                     b.Property<string>("State")
                         .HasColumnType("nvarchar(max)");
@@ -1860,6 +2027,9 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DeletionRequestedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
@@ -1989,6 +2159,68 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("CandidateProfile");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.Company", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "VerificationReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("VerificationReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("VerificationReviewedByUser");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CompanyFollow", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("FollowedCompanies")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIRecruiter.Domain.Entities.Company", "Company")
+                        .WithMany("Followers")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CandidateProfile");
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.CompanyReview", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("CompanyReviews")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIRecruiter.Domain.Entities.Company", "Company")
+                        .WithMany("Reviews")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "RecruiterResponseByUser")
+                        .WithMany()
+                        .HasForeignKey("RecruiterResponseByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "ReviewedByUser")
+                        .WithMany()
+                        .HasForeignKey("ReviewedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("CandidateProfile");
+
+                    b.Navigation("Company");
+
+                    b.Navigation("RecruiterResponseByUser");
+
+                    b.Navigation("ReviewedByUser");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.CoverLetterTemplate", b =>
@@ -2483,7 +2715,11 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Certifications");
 
+                    b.Navigation("CompanyReviews");
+
                     b.Navigation("CoverLetterTemplates");
+
+                    b.Navigation("FollowedCompanies");
 
                     b.Navigation("JobAlerts");
 
@@ -2498,11 +2734,15 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Company", b =>
                 {
+                    b.Navigation("Followers");
+
                     b.Navigation("JobPostings");
 
                     b.Navigation("JobTemplates");
 
                     b.Navigation("Recruiters");
+
+                    b.Navigation("Reviews");
 
                     b.Navigation("TalentPools");
                 });

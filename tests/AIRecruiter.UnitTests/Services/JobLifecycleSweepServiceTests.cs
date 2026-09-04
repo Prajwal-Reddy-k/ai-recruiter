@@ -118,4 +118,33 @@ public class JobLifecycleSweepServiceTests
         Assert.Equal(JobStatus.Open, db.JobPostings.First(j => j.Id == noDeadlineJob.Id).Status);
         Assert.Equal(JobStatus.Open, db.JobPostings.First(j => j.Id == futureDeadlineJob.Id).Status);
     }
+
+    [Fact]
+    public async Task Sweep_DeactivatesAccountPastDeletionGracePeriod()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = new User { FullName = "Casey", Email = "casey-deleted@example.com", Role = UserRole.Candidate, PasswordHash = "x", DeletionRequestedAt = DateTime.UtcNow.AddDays(-15) };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var originalStamp = user.SecurityStamp;
+
+        await RunOneSweepAsync(db);
+
+        var reloaded = db.Users.First(u => u.Id == user.Id);
+        Assert.False(reloaded.IsActive);
+        Assert.NotEqual(originalStamp, reloaded.SecurityStamp);
+    }
+
+    [Fact]
+    public async Task Sweep_DoesNotDeactivateAccountStillWithinGracePeriod()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = new User { FullName = "Casey", Email = "casey-pending@example.com", Role = UserRole.Candidate, PasswordHash = "x", DeletionRequestedAt = DateTime.UtcNow.AddDays(-2) };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+
+        await RunOneSweepAsync(db);
+
+        Assert.True(db.Users.First(u => u.Id == user.Id).IsActive);
+    }
 }

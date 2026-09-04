@@ -31,4 +31,4 @@ public record UpdateJobPostingRequest(
     bool IsRemote,
     JobType JobType);
 
-public record RecruiterJobSummaryDto(JobPostingDto Job, int ApplicationCount);
+public record RecruiterJobSummaryDto(JobPostingDto Job, int ApplicationCount, JobQualityScoreDto QualityScore, string? SalaryGuidance = null);

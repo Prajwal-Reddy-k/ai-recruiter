@@ -8,3 +8,7 @@ public record ChangePasswordRequest(string CurrentPassword, string NewPassword, 
 
 public record RequestAccountDeletionRequest(string Password);
 
+public record AccountDeletionStatusDto(bool IsPending, DateTime? RequestedAtUtc, DateTime? ScheduledDeactivationAtUtc, int? DaysRemaining);
+
+public record PrivacySummaryDto(string? ProfileVisibility, bool MessagesEnabled, bool ApplicationsEnabled, bool InterviewsEnabled, bool InvitationsEnabled, AccountDeletionStatusDto Deletion);
+

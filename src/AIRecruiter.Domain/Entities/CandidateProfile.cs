@@ -76,4 +76,6 @@ public class CandidateProfile : BaseEntity
     public ICollection<CoverLetterTemplate> CoverLetterTemplates { get; set; } = new List<CoverLetterTemplate>();
     public ICollection<SkillAssessmentAttempt> AssessmentAttempts { get; set; } = new List<SkillAssessmentAttempt>();
     public ICollection<CareerGoal> CareerGoals { get; set; } = new List<CareerGoal>();
+    public ICollection<CompanyFollow> FollowedCompanies { get; set; } = new List<CompanyFollow>();
+    public ICollection<CompanyReview> CompanyReviews { get; set; } = new List<CompanyReview>();
 }

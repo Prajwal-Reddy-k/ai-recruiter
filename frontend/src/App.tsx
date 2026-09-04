@@ -14,6 +14,7 @@ import CoverLetterTemplatesPage from "./pages/CoverLetterTemplatesPage";
 import SkillAssessmentsPage from "./pages/SkillAssessmentsPage";
 import AssessmentAttemptPage from "./pages/AssessmentAttemptPage";
 import CareerGoalsPage from "./pages/CareerGoalsPage";
+import ActivityTimelinePage from "./pages/ActivityTimelinePage";
 import PublicTalentProfilePage from "./pages/PublicTalentProfilePage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -38,6 +39,8 @@ import RecruiterDashboardPage from "./pages/RecruiterDashboardPage";
 import RecruiterAnalyticsPage from "./pages/RecruiterAnalyticsPage";
 import DashboardRedirectPage from "./pages/DashboardRedirectPage";
 import JobAlertsPage from "./pages/JobAlertsPage";
+import SalaryInsightsPage from "./pages/SalaryInsightsPage";
+import PrivacyCenterPage from "./pages/PrivacyCenterPage";
 import CompanyProfilePage from "./pages/CompanyProfilePage";
 import AdminPage from "./pages/AdminPage";
 import CandidateInterviewsPage from "./pages/CandidateInterviewsPage";
@@ -74,11 +77,20 @@ export default function App() {
           <Routes>
             <Route path="/" element={<HomeRoute />} />
             <Route path="/help" element={<HelpSupportPage />} />
+            <Route path="/salary-insights" element={<SalaryInsightsPage />} />
             <Route
               path="/settings"
               element={
                 <ProtectedRoute>
                   <SettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/privacy"
+              element={
+                <ProtectedRoute>
+                  <PrivacyCenterPage />
                 </ProtectedRoute>
               }
             />
@@ -202,6 +214,14 @@ export default function App() {
               element={
                 <ProtectedRoute allowedRoles={["Candidate"]}>
                   <CareerGoalsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity"
+              element={
+                <ProtectedRoute allowedRoles={["Candidate", "Recruiter"]}>
+                  <ActivityTimelinePage />
                 </ProtectedRoute>
               }
             />

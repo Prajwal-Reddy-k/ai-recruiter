@@ -45,6 +45,9 @@ const STATUS_TONES: Record<string, BadgeTone> = {
   Interviewing: "accent",
   NotSelected: "danger",
   Invited: "info",
+  Verified: "success",
+  NeedsMoreInfo: "warning",
+  NotSubmitted: "neutral",
 };
 
 function toDisplayLabel(status: string): string {

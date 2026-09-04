@@ -2,7 +2,7 @@ namespace AIRecruiter.Application.DTOs.Analytics;
 
 public record NamedCountDto(string Name, int Count);
 
-public record JobViewsVsApplicationsDto(int JobId, string Title, int ViewCount, int ApplicationCount);
+public record JobViewsVsApplicationsDto(int JobId, string Title, int ViewCount, int ApplicationCount, int ShareCount = 0);
 
 public record RecruiterAnalyticsDto(
     int ActiveJobs,

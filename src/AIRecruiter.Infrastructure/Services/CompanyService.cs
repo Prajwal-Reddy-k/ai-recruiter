@@ -2,6 +2,7 @@ using AIRecruiter.Application.DTOs.Companies;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
+using AIRecruiter.Domain.Enums;
 using AIRecruiter.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,6 +26,12 @@ public class CompanyService : ICompanyService
 
         IReadOnlyList<JobPostingDto> openJobs = await _jobPostingService.GetByCompanyAsync(companyId, ct);
 
+        var publishedReviews = await _db.CompanyReviews
+            .Where(r => r.CompanyId == companyId && r.Status == ReviewStatus.Published)
+            .Select(r => r.OverallRating)
+            .ToListAsync(ct);
+        decimal? averageRating = publishedReviews.Count > 0 ? (decimal)publishedReviews.Average() : null;
+
         return new CompanyProfileDto(
             company.Id,
             company.Name,
@@ -39,6 +46,9 @@ public class CompanyService : ICompanyService
             company.CultureHighlights,
             company.LinkedInUrl,
             company.TwitterUrl,
-            openJobs);
+            openJobs,
+            company.VerificationStatus == CompanyVerificationStatus.Verified,
+            averageRating,
+            publishedReviews.Count);
     }
 }

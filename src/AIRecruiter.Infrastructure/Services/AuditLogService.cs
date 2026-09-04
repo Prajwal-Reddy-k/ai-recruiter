@@ -61,6 +61,27 @@ public class AuditLogService : IAuditLogService
         return entries.Select(ToDto).ToList();
     }
 
+    public async Task<IReadOnlyList<AuditLogEntryDto>> GetForUserAsync(int userId, string? actionTypeFilter, DateTime? from, DateTime? to, CancellationToken ct = default)
+    {
+        var query = _db.AuditLogEntries.Include(e => e.ActorUser).Where(e => e.ActorUserId == userId);
+
+        if (!string.IsNullOrWhiteSpace(actionTypeFilter))
+        {
+            query = query.Where(e => e.ActionType == actionTypeFilter);
+        }
+        if (from.HasValue)
+        {
+            query = query.Where(e => e.TimestampUtc >= from.Value);
+        }
+        if (to.HasValue)
+        {
+            query = query.Where(e => e.TimestampUtc <= to.Value);
+        }
+
+        var entries = await query.OrderByDescending(e => e.TimestampUtc).Take(300).ToListAsync(ct);
+        return entries.Select(ToDto).ToList();
+    }
+
     private static AuditLogEntryDto ToDto(AuditLogEntry e) => new(
         e.Id,
         e.ActorUserId,

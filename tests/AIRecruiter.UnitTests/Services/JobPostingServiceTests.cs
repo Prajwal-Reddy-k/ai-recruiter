@@ -40,7 +40,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var updated = await sut.UpdateStatusAsync(recruiter.Id, job.Id, new UpdateJobStatusRequest(JobStatus.Closed));
 
@@ -52,7 +52,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (_, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var otherRecruiterUser = new User { FullName = "Other Recruiter", Email = "other@example.com", Role = UserRole.Recruiter };
         db.Users.Add(otherRecruiterUser);
@@ -69,7 +69,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, _) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => sut.UpdateStatusAsync(recruiter.Id, 9999, new UpdateJobStatusRequest(JobStatus.Closed)));
@@ -82,7 +82,7 @@ public class JobPostingServiceTests
         var (recruiter, job) = await SeedAsync(db);
         job.Status = JobStatus.Archived;
         await db.SaveChangesAsync();
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var ex = await Assert.ThrowsAsync<ConflictException>(
             () => sut.UpdateStatusAsync(recruiter.Id, job.Id, new UpdateJobStatusRequest(JobStatus.Open)));
@@ -98,7 +98,7 @@ public class JobPostingServiceTests
         job.City = "Bengaluru";
         job.State = "Karnataka";
         await db.SaveChangesAsync();
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var updated = await sut.UpdateStatusAsync(recruiter.Id, job.Id, new UpdateJobStatusRequest(JobStatus.Open));
 
@@ -111,7 +111,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var copy = await sut.DuplicateAsync(recruiter.Id, job.Id);
 
@@ -125,7 +125,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (_, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var otherRecruiterUser = new User { FullName = "Other Recruiter 2", Email = "other2@example.com", Role = UserRole.Recruiter };
         db.Users.Add(otherRecruiterUser);
@@ -141,7 +141,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (_, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         await sut.GetByIdAsync(job.Id, "visitor-1", null);
         var second = await sut.GetByIdAsync(job.Id, "visitor-1", null);
@@ -154,7 +154,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (_, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         await sut.GetByIdAsync(job.Id, "visitor-1", null);
         var second = await sut.GetByIdAsync(job.Id, "visitor-2", null);
@@ -167,7 +167,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var result = await sut.GetByIdAsync(job.Id, $"u:{recruiter.Id}", recruiter.Id);
 
@@ -181,7 +181,7 @@ public class JobPostingServiceTests
         var (_, job) = await SeedAsync(db);
         job.ModerationStatus = ModerationStatus.Hidden;
         await db.SaveChangesAsync();
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var result = await sut.GetByIdAsync(job.Id, "visitor-1", null);
 
@@ -195,7 +195,7 @@ public class JobPostingServiceTests
         var (_, job) = await SeedAsync(db);
         job.ModerationStatus = ModerationStatus.Hidden;
         await db.SaveChangesAsync();
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var result = await sut.GetByIdAsync(job.Id, "admin-1", null, isAdminViewer: true);
 
@@ -209,7 +209,7 @@ public class JobPostingServiceTests
         var (recruiter, job) = await SeedAsync(db);
         job.ModerationStatus = ModerationStatus.Hidden;
         await db.SaveChangesAsync();
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var result = await sut.GetByIdAsync(job.Id, $"u:{recruiter.Id}", recruiter.Id);
 
@@ -221,7 +221,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
         var deadline = DateTime.UtcNow.AddDays(14);
 
         var updated = await sut.ExtendDeadlineAsync(recruiter.Id, job.Id, deadline);
@@ -234,7 +234,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (recruiter, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         await Assert.ThrowsAsync<ValidationException>(
             () => sut.ExtendDeadlineAsync(recruiter.Id, job.Id, DateTime.UtcNow.AddDays(-1)));
@@ -245,7 +245,7 @@ public class JobPostingServiceTests
     {
         using var db = TestDbContextFactory.Create();
         var (_, job) = await SeedAsync(db);
-        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup());
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
 
         var otherRecruiterUser = new User { FullName = "Other Recruiter 3", Email = "other3@example.com", Role = UserRole.Recruiter };
         db.Users.Add(otherRecruiterUser);
@@ -255,5 +255,129 @@ public class JobPostingServiceTests
 
         await Assert.ThrowsAsync<ForbiddenException>(
             () => sut.ExtendDeadlineAsync(otherRecruiterUser.Id, job.Id, DateTime.UtcNow.AddDays(7)));
+    }
+
+    private static CreateJobPostingRequest DraftRequest(string title = "Backend Engineer", bool saveAsDraft = true) =>
+        new(title, "A role description.", "C#,SQL", 2, 5, null, null, null, null, null, true, JobType.FullTime, saveAsDraft);
+
+    [Fact]
+    public async Task UpdateStatusAsync_DraftToOpen_NotifiesFollowersOfCompany()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, _) = await SeedAsync(db);
+        var recruiterProfile = db.RecruiterProfiles.First(r => r.UserId == recruiter.Id);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        var followerUser = new User { FullName = "Fiona Follower", Email = "fiona@example.com", Role = UserRole.Candidate };
+        db.Users.Add(followerUser);
+        await db.SaveChangesAsync();
+        var followerProfile = new CandidateProfile { UserId = followerUser.Id };
+        db.CandidateProfiles.Add(followerProfile);
+        await db.SaveChangesAsync();
+        db.CompanyFollows.Add(new CompanyFollow { CandidateProfileId = followerProfile.Id, CompanyId = recruiterProfile.CompanyId, NotifyOnNewJob = true });
+        await db.SaveChangesAsync();
+
+        var draft = await sut.CreateAsync(recruiter.Id, DraftRequest());
+        await sut.UpdateStatusAsync(recruiter.Id, draft.Id, new UpdateJobStatusRequest(JobStatus.Open));
+
+        Assert.Contains(db.Notifications, n => n.UserId == followerUser.Id && n.Type == "CompanyNewJob");
+    }
+
+    [Fact]
+    public async Task UpdateStatusAsync_ClosedToOpenReopen_DoesNotReNotifyFollowers()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, _) = await SeedAsync(db);
+        var recruiterProfile = db.RecruiterProfiles.First(r => r.UserId == recruiter.Id);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        var followerUser = new User { FullName = "Fiona Follower", Email = "fiona2@example.com", Role = UserRole.Candidate };
+        db.Users.Add(followerUser);
+        await db.SaveChangesAsync();
+        var followerProfile = new CandidateProfile { UserId = followerUser.Id };
+        db.CandidateProfiles.Add(followerProfile);
+        await db.SaveChangesAsync();
+        db.CompanyFollows.Add(new CompanyFollow { CandidateProfileId = followerProfile.Id, CompanyId = recruiterProfile.CompanyId, NotifyOnNewJob = true });
+        await db.SaveChangesAsync();
+
+        var draft = await sut.CreateAsync(recruiter.Id, DraftRequest());
+        await sut.UpdateStatusAsync(recruiter.Id, draft.Id, new UpdateJobStatusRequest(JobStatus.Open));
+        await sut.UpdateStatusAsync(recruiter.Id, draft.Id, new UpdateJobStatusRequest(JobStatus.Closed));
+        db.Notifications.RemoveRange(db.Notifications);
+        await db.SaveChangesAsync();
+
+        await sut.UpdateStatusAsync(recruiter.Id, draft.Id, new UpdateJobStatusRequest(JobStatus.Open));
+
+        Assert.DoesNotContain(db.Notifications, n => n.UserId == followerUser.Id && n.Type == "CompanyNewJob");
+    }
+
+    [Fact]
+    public async Task RecordShareAsync_DistinctVisitors_IncrementsShareCount()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, job) = await SeedAsync(db);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        await sut.RecordShareAsync(job.Id, "visitor-a");
+        await sut.RecordShareAsync(job.Id, "visitor-b");
+
+        var reloaded = db.JobPostings.First(j => j.Id == job.Id);
+        Assert.Equal(2, reloaded.ShareCount);
+    }
+
+    [Fact]
+    public async Task RecordShareAsync_SameVisitorTwice_DoesNotDoubleCount()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, job) = await SeedAsync(db);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        await sut.RecordShareAsync(job.Id, "visitor-a");
+        await sut.RecordShareAsync(job.Id, "visitor-a");
+
+        var reloaded = db.JobPostings.First(j => j.Id == job.Id);
+        Assert.Equal(1, reloaded.ShareCount);
+    }
+
+    [Fact]
+    public async Task CreateAsync_PublishingMatchingJob_NotifiesSavedSearchOwner()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, _) = await SeedAsync(db);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        var searchOwnerUser = new User { FullName = "Sam Searcher", Email = "sam@example.com", Role = UserRole.Candidate };
+        db.Users.Add(searchOwnerUser);
+        await db.SaveChangesAsync();
+        var searchOwnerProfile = new CandidateProfile { UserId = searchOwnerUser.Id };
+        db.CandidateProfiles.Add(searchOwnerProfile);
+        await db.SaveChangesAsync();
+        db.JobAlerts.Add(new JobAlert { CandidateProfileId = searchOwnerProfile.Id, Keyword = "engineer", IsActive = true });
+        await db.SaveChangesAsync();
+
+        await sut.CreateAsync(recruiter.Id, DraftRequest("Senior Backend Engineer", saveAsDraft: false));
+
+        Assert.Contains(db.Notifications, n => n.UserId == searchOwnerUser.Id && n.Type == "SavedSearchMatch");
+    }
+
+    [Fact]
+    public async Task CreateAsync_NonMatchingJob_DoesNotNotifySavedSearchOwner()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, _) = await SeedAsync(db);
+        var sut = new JobPostingService(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+        var searchOwnerUser = new User { FullName = "Sam Searcher", Email = "sam2@example.com", Role = UserRole.Candidate };
+        db.Users.Add(searchOwnerUser);
+        await db.SaveChangesAsync();
+        var searchOwnerProfile = new CandidateProfile { UserId = searchOwnerUser.Id };
+        db.CandidateProfiles.Add(searchOwnerProfile);
+        await db.SaveChangesAsync();
+        db.JobAlerts.Add(new JobAlert { CandidateProfileId = searchOwnerProfile.Id, Keyword = "designer", IsActive = true });
+        await db.SaveChangesAsync();
+
+        await sut.CreateAsync(recruiter.Id, DraftRequest("Senior Backend Engineer", saveAsDraft: false));
+
+        Assert.DoesNotContain(db.Notifications, n => n.UserId == searchOwnerUser.Id && n.Type == "SavedSearchMatch");
     }
 }

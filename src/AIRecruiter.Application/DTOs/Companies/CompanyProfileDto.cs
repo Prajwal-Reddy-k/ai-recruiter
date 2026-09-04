@@ -16,4 +16,7 @@ public record CompanyProfileDto(
     string? CultureHighlights,
     string? LinkedInUrl,
     string? TwitterUrl,
-    IReadOnlyList<JobPostingDto> OpenJobs);
+    IReadOnlyList<JobPostingDto> OpenJobs,
+    bool IsVerified = false,
+    decimal? AverageRating = null,
+    int ReviewCount = 0);

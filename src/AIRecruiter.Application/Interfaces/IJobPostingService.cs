@@ -13,4 +13,8 @@ public interface IJobPostingService
     Task<JobPostingDto> DuplicateAsync(int recruiterUserId, int jobId, CancellationToken ct = default);
     Task<IReadOnlyList<JobPostingDto>> GetByCompanyAsync(int companyId, CancellationToken ct = default);
     Task<JobPostingDto> ExtendDeadlineAsync(int recruiterUserId, int jobId, DateTime? applicationDeadlineUtc, CancellationToken ct = default);
+
+    /// <summary>Anonymous-callable — increments the job's aggregate share count, deduped per
+    /// visitor the same way view counting is, so no personal data is ever stored per share.</summary>
+    Task RecordShareAsync(int jobId, string? visitorKey, CancellationToken ct = default);
 }

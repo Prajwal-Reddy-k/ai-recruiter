@@ -10,12 +10,14 @@ namespace AIRecruiter.Infrastructure.Services;
 
 /// <summary>The only background/scheduled task in the app (none existed before this).
 /// Every 15 minutes: auto-closes Open jobs past their application deadline (the "in-app
-/// reminder" is the recruiter notification this creates — no email/SMS), and expires stale
-/// Sent/Viewed invitations. A plain PeriodicTimer inside a BackgroundService — no external
-/// scheduler dependency, zero-cost.</summary>
+/// reminder" is the recruiter notification this creates — no email/SMS), expires stale
+/// Sent/Viewed invitations, and deactivates accounts whose self-requested deletion grace
+/// period has elapsed without being cancelled. A plain PeriodicTimer inside a
+/// BackgroundService — no external scheduler dependency, zero-cost.</summary>
 public class JobLifecycleSweepService : BackgroundService
 {
     private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(15);
+    private static readonly TimeSpan DeletionGracePeriod = TimeSpan.FromDays(14);
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<JobLifecycleSweepService> _logger;
@@ -82,10 +84,26 @@ public class JobLifecycleSweepService : BackgroundService
             invitation.UpdatedAt = now;
         }
 
-        if (expiredJobs.Count > 0 || expiredInvitations.Count > 0)
+        var deletionCutoff = now - DeletionGracePeriod;
+        var usersToDeactivate = await db.Users
+            .Where(u => u.IsActive && u.DeletionRequestedAt != null && u.DeletionRequestedAt <= deletionCutoff)
+            .ToListAsync(ct);
+
+        foreach (var user in usersToDeactivate)
+        {
+            user.IsActive = false;
+            // Same mechanism the old immediate-delete flow used, and the same one
+            // AdminService.SuspendUserAsync uses — signs the account out everywhere.
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            await auditLog.LogAsync(null, "System", "AccountDeleted", "User", user.Id, null, ct);
+        }
+
+        if (expiredJobs.Count > 0 || expiredInvitations.Count > 0 || usersToDeactivate.Count > 0)
         {
             await db.SaveChangesAsync(ct);
-            _logger.LogInformation("Job lifecycle sweep closed {JobCount} expired jobs and expired {InvitationCount} invitations.", expiredJobs.Count, expiredInvitations.Count);
+            _logger.LogInformation(
+                "Job lifecycle sweep closed {JobCount} expired jobs, expired {InvitationCount} invitations, and deactivated {DeletionCount} accounts past their deletion grace period.",
+                expiredJobs.Count, expiredInvitations.Count, usersToDeactivate.Count);
         }
     }
 }

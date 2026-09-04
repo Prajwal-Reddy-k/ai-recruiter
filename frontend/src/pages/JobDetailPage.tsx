@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Bookmark, BookmarkCheck, Briefcase, Clock, MapPin, Wallet } from "lucide-react";
+import { Bookmark, BookmarkCheck, Briefcase, Clock, Heart, MapPin, Wallet } from "lucide-react";
 import { getJobById, getOpenJobs, reportJob } from "../api/jobs";
 import { REPORT_REASON_LABELS, type ReportReasonValue } from "../api/moderationReports";
 import { applyToJob } from "../api/applications";
 import { getSavedJobs, saveJob, unsaveJob } from "../api/savedJobs";
 import { getMyCoverLetterTemplates } from "../api/coverLetterTemplates";
 import { getMyCandidateProfile } from "../api/candidates";
+import { followCompany, getFollowedCompanies, unfollowCompany } from "../api/follows";
 import type { CandidateProfile, CoverLetterTemplate, JobPosting } from "../types";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -20,6 +21,8 @@ import Modal from "../components/ui/Modal";
 import FormField from "../components/ui/FormField";
 import JobCard from "../components/JobCard";
 import CreateReferralModal from "../components/CreateReferralModal";
+import VerifiedBadge from "../components/VerifiedBadge";
+import ShareMenu from "../components/ShareMenu";
 
 type ApplyState = "idle" | "applying" | "applied" | "error";
 
@@ -39,6 +42,8 @@ export default function JobDetailPage() {
   const [reportSubmitted, setReportSubmitted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [savePending, setSavePending] = useState(false);
+  const [followingCompany, setFollowingCompany] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
 
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [referralModalOpen, setReferralModalOpen] = useState(false);
@@ -65,6 +70,31 @@ export default function JobDetailPage() {
       .then((entries) => setSaved(entries.some((e) => e.job.id === Number(id))))
       .catch(() => setSaved(false));
   }, [id, isAuthenticated, user]);
+
+  useEffect(() => {
+    if (!job || !isAuthenticated || user?.role !== "Candidate") return;
+    getFollowedCompanies()
+      .then((followed) => setFollowingCompany(followed.some((f) => f.companyId === job.companyId)))
+      .catch(() => setFollowingCompany(false));
+  }, [job, isAuthenticated, user]);
+
+  async function handleToggleFollowCompany() {
+    if (!job || followPending) return;
+    setFollowPending(true);
+    try {
+      if (followingCompany) {
+        await unfollowCompany(job.companyId);
+        setFollowingCompany(false);
+      } else {
+        await followCompany(job.companyId);
+        setFollowingCompany(true);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Couldn't update followed companies"));
+    } finally {
+      setFollowPending(false);
+    }
+  }
 
   async function handleToggleSave() {
     if (!job || savePending) return;
@@ -146,6 +176,7 @@ export default function JobDetailPage() {
           <h1>{job.title}</h1>
           <p className="job-detail-company">
             <Link to={`/companies/${job.companyId}`}>{job.companyName}</Link>
+            {job.companyIsVerified && <VerifiedBadge className="job-card-verified-badge" />}
           </p>
         </div>
 
@@ -231,6 +262,23 @@ export default function JobDetailPage() {
               Refer a friend
             </Button>
           )}
+
+          {isAuthenticated && user?.role === "Candidate" && (
+            <Button
+              variant="secondary"
+              icon={<Heart size={16} fill={followingCompany ? "currentColor" : "none"} />}
+              onClick={handleToggleFollowCompany}
+              loading={followPending}
+              fullWidth
+              style={{ marginTop: "0.75rem" }}
+            >
+              {followingCompany ? "Following company" : "Follow company"}
+            </Button>
+          )}
+
+          <div style={{ marginTop: "0.75rem", display: "flex", justifyContent: "center" }}>
+            <ShareMenu jobId={job.id} jobTitle={job.title} />
+          </div>
 
           {isAuthenticated && (
             <button

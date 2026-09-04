@@ -1,6 +1,7 @@
 using AIRecruiter.Application.Common;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Domain.Entities;
+using AIRecruiter.Domain.Enums;
 
 namespace AIRecruiter.Infrastructure.Mapping;
 
@@ -28,5 +29,7 @@ public static class JobPostingMapper
         j.CreatedAt,
         j.ViewCount,
         j.PublishedAt,
-        j.ApplicationDeadlineUtc);
+        j.ApplicationDeadlineUtc,
+        j.ShareCount,
+        j.Company.VerificationStatus == CompanyVerificationStatus.Verified);
 }
