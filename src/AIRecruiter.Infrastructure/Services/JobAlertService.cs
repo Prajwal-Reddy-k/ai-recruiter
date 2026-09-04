@@ -195,7 +195,7 @@ public class JobAlertService : IJobAlertService
         return matchedJobs.Values
             .OrderByDescending(j => j.CreatedAt)
             .Take(limit)
-            .Select(JobPostingMapper.ToDto)
+            .Select(j => JobPostingMapper.ToDto(j))
             .ToList();
     }
 
@@ -253,7 +253,7 @@ public class JobAlertService : IJobAlertService
 
         return new(
             a.Id, a.SkillsCsv, a.State, a.City, a.IsRemote, a.JobType?.ToString(), a.MinExperienceYears,
-            a.IsActive, allMatches.Count, allMatches.Take(3).Select(JobPostingMapper.ToDto).ToList(), a.CreatedAt,
+            a.IsActive, allMatches.Count, allMatches.Take(3).Select(j => JobPostingMapper.ToDto(j)).ToList(), a.CreatedAt,
             a.Name, a.Keyword, a.MinSalary, a.MaxSalary, a.SortOption, a.IsDefault);
     }
 }

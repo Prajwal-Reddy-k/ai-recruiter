@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AIRecruiter.API.Controllers;
 
-public record ApplyRequest(string? CoverNote);
+public record ApplyRequest(string? CoverNote, IReadOnlyList<SubmitScreeningAnswerRequest>? Answers = null);
 
 [ApiController]
 [Authorize]
@@ -23,7 +23,7 @@ public class ApplicationsController : ControllerBase
     [HttpPost("api/jobs/{jobId:int}/apply")]
     public async Task<ActionResult<JobApplicationDto>> Apply(int jobId, ApplyRequest? request, CancellationToken ct)
     {
-        var application = await _applicationService.ApplyAsync(User.GetUserId(), jobId, request?.CoverNote, ct);
+        var application = await _applicationService.ApplyAsync(User.GetUserId(), jobId, request?.CoverNote, request?.Answers, ct);
         return Ok(application);
     }
 
@@ -53,9 +53,9 @@ public class ApplicationsController : ControllerBase
 
     [Authorize(Roles = "Recruiter")]
     [HttpGet("api/jobs/{jobId:int}/applications")]
-    public async Task<ActionResult<IReadOnlyList<JobApplicationDto>>> GetApplicationsForJob(int jobId, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<JobApplicationDto>>> GetApplicationsForJob(int jobId, [FromQuery] ApplicantScreeningFilterQuery filter, CancellationToken ct)
     {
-        var applications = await _applicationService.GetApplicationsForJobAsync(User.GetUserId(), jobId, ct);
+        var applications = await _applicationService.GetApplicationsForJobAsync(User.GetUserId(), jobId, filter, ct);
         return Ok(applications);
     }
 

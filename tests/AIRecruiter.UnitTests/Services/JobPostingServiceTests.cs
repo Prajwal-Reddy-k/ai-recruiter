@@ -380,4 +380,257 @@ public class JobPostingServiceTests
 
         Assert.DoesNotContain(db.Notifications, n => n.UserId == searchOwnerUser.Id && n.Type == "SavedSearchMatch");
     }
+
+    private static JobPostingService CreateSut(AppDbContext db) =>
+        new(db, TestServiceFactory.CreateLocationValidator(), TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateViewDedup(), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateSalaryInsightsService(db));
+
+    private static UpsertScreeningQuestionRequest Question(
+        int? id = null, string text = "Are you willing to relocate?", string type = "YesNo",
+        bool required = true, string? helpText = null, IReadOnlyList<string>? options = null, int order = 0, string? preferredAnswer = null) =>
+        new(id, text, type, required, helpText, options, order, preferredAnswer);
+
+    [Fact]
+    public async Task CreateAsync_WithValidQuestions_PersistsInOrderWithOptions()
+    {
+        using var db = TestDbContextFactory.Create();
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita-sq1@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = recruiterUser.Id, Company = new Company { Name = "Acme Corp" } });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var questions = new[]
+        {
+            Question(text: "Years of C# experience?", type: "Number", order: 1),
+            Question(text: "Preferred stack", type: "SingleChoice", options: new[] { "C#", "Java" }, order: 0, preferredAnswer: "C#"),
+        };
+        var request = DraftRequest() with { ScreeningQuestions = questions };
+
+        var dto = await sut.CreateAsync(recruiterUser.Id, request);
+
+        Assert.Equal(2, dto.ScreeningQuestions!.Count);
+        Assert.Equal("Preferred stack", dto.ScreeningQuestions[0].QuestionText);
+        Assert.Equal(2, dto.ScreeningQuestions[0].Options.Count);
+        // Public-path default (includePreferredAnswers not requested) still returns the owner's
+        // own CreateAsync call, which always includes it since the caller is the owner.
+        Assert.Equal("C#", dto.ScreeningQuestions[0].PreferredAnswer);
+    }
+
+    [Fact]
+    public async Task CreateAsync_TooManyQuestions_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita-sq2@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = recruiterUser.Id, Company = new Company { Name = "Acme Corp" } });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var questions = Enumerable.Range(0, 11).Select(i => Question(text: $"Question {i}", type: "ShortText", order: i)).ToArray();
+        var request = DraftRequest() with { ScreeningQuestions = questions };
+
+        await Assert.ThrowsAsync<ValidationException>(() => sut.CreateAsync(recruiterUser.Id, request));
+    }
+
+    [Fact]
+    public async Task CreateAsync_SingleChoiceWithOneOption_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita-sq3@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = recruiterUser.Id, Company = new Company { Name = "Acme Corp" } });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var request = DraftRequest() with { ScreeningQuestions = new[] { Question(type: "SingleChoice", options: new[] { "Only one" }) } };
+
+        await Assert.ThrowsAsync<ValidationException>(() => sut.CreateAsync(recruiterUser.Id, request));
+    }
+
+    [Fact]
+    public async Task CreateAsync_DuplicateOptionsCaseInsensitive_ThrowsValidation()
+    {
+        using var db = TestDbContextFactory.Create();
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = "rita-sq4@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = recruiterUser.Id, Company = new Company { Name = "Acme Corp" } });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var request = DraftRequest() with { ScreeningQuestions = new[] { Question(type: "SingleChoice", options: new[] { "Yes", "YES" }) } };
+
+        await Assert.ThrowsAsync<ValidationException>(() => sut.CreateAsync(recruiterUser.Id, request));
+    }
+
+    private async Task<(User Recruiter, JobPosting Job, JobScreeningQuestion Question)> SeedJobWithQuestionAsync(AppDbContext db, JobStatus status = JobStatus.Open)
+    {
+        var recruiterUser = new User { FullName = "Rita Recruiter", Email = $"rita-{Guid.NewGuid():N}@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(recruiterUser);
+        await db.SaveChangesAsync();
+        var company = new Company { Name = "Acme Corp" };
+        var recruiterProfile = new RecruiterProfile { UserId = recruiterUser.Id, Company = company };
+        db.RecruiterProfiles.Add(recruiterProfile);
+        await db.SaveChangesAsync();
+        var job = new JobPosting { Title = "Backend Engineer", Description = "role", Status = status, CompanyId = company.Id, RecruiterProfileId = recruiterProfile.Id };
+        db.JobPostings.Add(job);
+        await db.SaveChangesAsync();
+        var question = new JobScreeningQuestion { JobPostingId = job.Id, QuestionText = "Relocate?", QuestionType = ScreeningQuestionType.YesNo, IsRequired = true, DisplayOrder = 0 };
+        db.JobScreeningQuestions.Add(question);
+        await db.SaveChangesAsync();
+        return (recruiterUser, job, question);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_AddingQuestionToPublishedJob_Succeeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, existing) = await SeedJobWithQuestionAsync(db);
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            new[] { Question(existing.Id, existing.QuestionText, "YesNo", existing.IsRequired, order: 0), Question(text: "New question", type: "ShortText", order: 1) });
+
+        var dto = await sut.UpdateAsync(recruiter.Id, job.Id, update);
+
+        Assert.Equal(2, dto.ScreeningQuestions!.Count);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_EditingTextOnAnsweredQuestion_Succeeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, question) = await SeedJobWithQuestionAsync(db);
+        var candidateUser = new User { FullName = "Casey Candidate", Email = "casey-sq@example.com", Role = UserRole.Candidate };
+        db.Users.Add(candidateUser);
+        await db.SaveChangesAsync();
+        var profile = new CandidateProfile { UserId = candidateUser.Id };
+        db.CandidateProfiles.Add(profile);
+        await db.SaveChangesAsync();
+        var application = new JobApplication { JobPostingId = job.Id, CandidateProfileId = profile.Id };
+        db.JobApplications.Add(application);
+        await db.SaveChangesAsync();
+        db.ScreeningAnswers.Add(new ScreeningAnswer { JobApplicationId = application.Id, JobScreeningQuestionId = question.Id, TextValue = "Yes" });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            new[] { Question(question.Id, "Willing to relocate within India?", "YesNo", true, order: 0) });
+
+        var dto = await sut.UpdateAsync(recruiter.Id, job.Id, update);
+
+        Assert.Equal("Willing to relocate within India?", dto.ScreeningQuestions![0].QuestionText);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_ChangingTypeOfAnsweredQuestion_ThrowsConflict()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, question) = await SeedJobWithQuestionAsync(db);
+        var candidateUser = new User { FullName = "Casey Candidate", Email = "casey-sq2@example.com", Role = UserRole.Candidate };
+        db.Users.Add(candidateUser);
+        await db.SaveChangesAsync();
+        var profile = new CandidateProfile { UserId = candidateUser.Id };
+        db.CandidateProfiles.Add(profile);
+        await db.SaveChangesAsync();
+        var application = new JobApplication { JobPostingId = job.Id, CandidateProfileId = profile.Id };
+        db.JobApplications.Add(application);
+        await db.SaveChangesAsync();
+        db.ScreeningAnswers.Add(new ScreeningAnswer { JobApplicationId = application.Id, JobScreeningQuestionId = question.Id, TextValue = "Yes" });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            new[] { Question(question.Id, question.QuestionText, "ShortText", true, order: 0) });
+
+        await Assert.ThrowsAsync<ConflictException>(() => sut.UpdateAsync(recruiter.Id, job.Id, update));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeletingAnsweredQuestion_ThrowsConflict()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, question) = await SeedJobWithQuestionAsync(db);
+        var candidateUser = new User { FullName = "Casey Candidate", Email = "casey-sq3@example.com", Role = UserRole.Candidate };
+        db.Users.Add(candidateUser);
+        await db.SaveChangesAsync();
+        var profile = new CandidateProfile { UserId = candidateUser.Id };
+        db.CandidateProfiles.Add(profile);
+        await db.SaveChangesAsync();
+        var application = new JobApplication { JobPostingId = job.Id, CandidateProfileId = profile.Id };
+        db.JobApplications.Add(application);
+        await db.SaveChangesAsync();
+        db.ScreeningAnswers.Add(new ScreeningAnswer { JobApplicationId = application.Id, JobScreeningQuestionId = question.Id, TextValue = "Yes" });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            Array.Empty<UpsertScreeningQuestionRequest>());
+
+        await Assert.ThrowsAsync<ConflictException>(() => sut.UpdateAsync(recruiter.Id, job.Id, update));
+    }
+
+    [Fact]
+    public async Task UpdateAsync_DeletingUnansweredQuestion_Succeeds()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, _) = await SeedJobWithQuestionAsync(db);
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            Array.Empty<UpsertScreeningQuestionRequest>());
+
+        var dto = await sut.UpdateAsync(recruiter.Id, job.Id, update);
+
+        Assert.Empty(dto.ScreeningQuestions!);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NonOwningRecruiter_ThrowsForbidden()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (_, job, _) = await SeedJobWithQuestionAsync(db);
+        var otherRecruiterUser = new User { FullName = "Other Recruiter", Email = "other-sq@example.com", Role = UserRole.Recruiter };
+        db.Users.Add(otherRecruiterUser);
+        await db.SaveChangesAsync();
+        db.RecruiterProfiles.Add(new RecruiterProfile { UserId = otherRecruiterUser.Id, Company = new Company { Name = "Other Co" } });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var update = new UpdateJobPostingRequest(job.Title, job.Description, null, null, null, null, null, "Bengaluru", "Karnataka", null, false, JobType.FullTime,
+            Array.Empty<UpsertScreeningQuestionRequest>());
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => sut.UpdateAsync(otherRecruiterUser.Id, job.Id, update));
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_AnonymousViewer_NeverIncludesPreferredAnswer()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, question) = await SeedJobWithQuestionAsync(db);
+        question.PreferredAnswer = "Yes";
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var dto = await sut.GetByIdAsync(job.Id, viewerKey: "anon-1", viewerUserId: null);
+
+        Assert.Null(dto!.ScreeningQuestions![0].PreferredAnswer);
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_OwningRecruiter_IncludesPreferredAnswer()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job, question) = await SeedJobWithQuestionAsync(db);
+        question.PreferredAnswer = "Yes";
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var dto = await sut.GetByIdAsync(job.Id, viewerKey: null, viewerUserId: recruiter.Id);
+
+        Assert.Equal("Yes", dto!.ScreeningQuestions![0].PreferredAnswer);
+    }
 }

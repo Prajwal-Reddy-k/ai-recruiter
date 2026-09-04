@@ -24,4 +24,5 @@ public record JobPostingDto(
     DateTime? PublishedAt,
     DateTime? ApplicationDeadlineUtc,
     int ShareCount = 0,
-    bool CompanyIsVerified = false);
+    bool CompanyIsVerified = false,
+    IReadOnlyList<ScreeningQuestionDto>? ScreeningQuestions = null);

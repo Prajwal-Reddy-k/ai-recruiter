@@ -80,7 +80,7 @@ public class SavedJobService : ISavedJobService
             .Select(s => s.JobPosting)
             .ToListAsync(ct);
 
-        return jobs.Select(JobPostingMapper.ToDto).ToList();
+        return jobs.Select(j => JobPostingMapper.ToDto(j)).ToList();
     }
 
     public async Task<IReadOnlyList<SavedJobDto>> GetMySavedJobsWithDatesAsync(int candidateUserId, CancellationToken ct = default)

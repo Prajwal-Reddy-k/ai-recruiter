@@ -43,6 +43,7 @@ public class JobPostingService : IJobPostingService
     {
         var query = _db.JobPostings
             .Include(j => j.Company)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .Where(j => j.Status == JobStatus.Open && j.ModerationStatus == ModerationStatus.Approved)
             .AsQueryable();
 
@@ -68,6 +69,7 @@ public class JobPostingService : IJobPostingService
         var job = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .FirstOrDefaultAsync(j => j.Id == id, ct);
 
         if (job is null)
@@ -94,7 +96,7 @@ public class JobPostingService : IJobPostingService
             await _db.SaveChangesAsync(ct);
         }
 
-        return ToDto(job);
+        return ToDto(job, includePreferredAnswers: isOwner);
     }
 
     public async Task<JobPostingDto> CreateAsync(int recruiterUserId, CreateJobPostingRequest request, CancellationToken ct = default)
@@ -147,6 +149,8 @@ public class JobPostingService : IJobPostingService
 
         job.Company = recruiterProfile.Company;
 
+        await SyncScreeningQuestionsAsync(recruiterUserId, job, request.ScreeningQuestions, ct);
+
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", status == JobStatus.Draft ? "JobDraftSaved" : "JobCreated", "JobPosting", job.Id, new { job.Title }, ct);
 
         if (status == JobStatus.Open)
@@ -155,7 +159,7 @@ public class JobPostingService : IJobPostingService
             await NotifySavedSearchMatchesAsync(job, ct);
         }
 
-        return ToDto(job);
+        return ToDto(job, includePreferredAnswers: true);
     }
 
     public async Task<JobPostingDto> UpdateAsync(int recruiterUserId, int jobId, UpdateJobPostingRequest request, CancellationToken ct = default)
@@ -163,6 +167,8 @@ public class JobPostingService : IJobPostingService
         var job = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Answers)
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
@@ -203,9 +209,11 @@ public class JobPostingService : IJobPostingService
 
         await _db.SaveChangesAsync(ct);
 
+        await SyncScreeningQuestionsAsync(recruiterUserId, job, request.ScreeningQuestions, ct);
+
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", "JobUpdated", "JobPosting", job.Id, new { job.Title }, ct);
 
-        return ToDto(job);
+        return ToDto(job, includePreferredAnswers: true);
     }
 
     public async Task<IReadOnlyList<RecruiterJobSummaryDto>> GetMyJobsAsync(int recruiterUserId, CancellationToken ct = default)
@@ -213,6 +221,7 @@ public class JobPostingService : IJobPostingService
         var jobs = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .Where(j => j.RecruiterProfile.UserId == recruiterUserId)
             .OrderByDescending(j => j.CreatedAt)
             .ToListAsync(ct);
@@ -228,7 +237,7 @@ public class JobPostingService : IJobPostingService
         foreach (var j in jobs)
         {
             var guidance = await _salaryInsights.GetGuidanceForJobAsync(j.Title, j.City, j.State, j.IsRemote, j.MinExperienceYears, j.MinSalary, j.MaxSalary, ct);
-            results.Add(new RecruiterJobSummaryDto(ToDto(j), applicationCounts.GetValueOrDefault(j.Id, 0), JobQualityScorer.Calculate(BuildQualityInput(j)), guidance));
+            results.Add(new RecruiterJobSummaryDto(ToDto(j, includePreferredAnswers: true), applicationCounts.GetValueOrDefault(j.Id, 0), JobQualityScorer.Calculate(BuildQualityInput(j)), guidance));
         }
         return results;
     }
@@ -256,9 +265,10 @@ public class JobPostingService : IJobPostingService
     {
         var jobs = await _db.JobPostings
             .Include(j => j.Company)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .Where(j => j.CompanyId == companyId && j.Status == JobStatus.Open && j.ModerationStatus == ModerationStatus.Approved)
             .OrderByDescending(j => j.CreatedAt)
-            .Select(j => ToDto(j))
+            .Select(j => ToDto(j, false))
             .ToListAsync(ct);
 
         return jobs;
@@ -269,6 +279,7 @@ public class JobPostingService : IJobPostingService
         var job = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
@@ -279,7 +290,7 @@ public class JobPostingService : IJobPostingService
 
         if (job.Status == request.Status)
         {
-            return ToDto(job);
+            return ToDto(job, includePreferredAnswers: true);
         }
 
         var allowedTargets = AllowedTransitions.GetValueOrDefault(job.Status, Array.Empty<JobStatus>());
@@ -315,7 +326,7 @@ public class JobPostingService : IJobPostingService
             await NotifySavedSearchMatchesAsync(job, ct);
         }
 
-        return ToDto(job);
+        return ToDto(job, includePreferredAnswers: true);
     }
 
     public async Task<JobPostingDto> DuplicateAsync(int recruiterUserId, int jobId, CancellationToken ct = default)
@@ -323,6 +334,7 @@ public class JobPostingService : IJobPostingService
         var source = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
@@ -356,9 +368,30 @@ public class JobPostingService : IJobPostingService
         await _db.SaveChangesAsync(ct);
         copy.Company = source.Company;
 
+        // A duplicate is always a fresh Draft with zero applicants, so questions/options can
+        // be cloned wholesale — there's no answer history to worry about invalidating.
+        foreach (var sourceQuestion in source.ScreeningQuestions.OrderBy(q => q.DisplayOrder))
+        {
+            copy.ScreeningQuestions.Add(new JobScreeningQuestion
+            {
+                JobPostingId = copy.Id,
+                QuestionText = sourceQuestion.QuestionText,
+                QuestionType = sourceQuestion.QuestionType,
+                IsRequired = sourceQuestion.IsRequired,
+                HelpText = sourceQuestion.HelpText,
+                DisplayOrder = sourceQuestion.DisplayOrder,
+                PreferredAnswer = sourceQuestion.PreferredAnswer,
+                Options = sourceQuestion.Options
+                    .OrderBy(o => o.DisplayOrder)
+                    .Select(o => new ScreeningQuestionOption { OptionText = o.OptionText, DisplayOrder = o.DisplayOrder })
+                    .ToList(),
+            });
+        }
+        await _db.SaveChangesAsync(ct);
+
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", "JobDuplicated", "JobPosting", copy.Id, new { SourceJobId = source.Id, copy.Title }, ct);
 
-        return ToDto(copy);
+        return ToDto(copy, includePreferredAnswers: true);
     }
 
     public async Task<JobPostingDto> ExtendDeadlineAsync(int recruiterUserId, int jobId, DateTime? applicationDeadlineUtc, CancellationToken ct = default)
@@ -366,6 +399,7 @@ public class JobPostingService : IJobPostingService
         var job = await _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.RecruiterProfile)
+            .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
             .FirstOrDefaultAsync(j => j.Id == jobId, ct)
             ?? throw new NotFoundException("Job posting not found.");
 
@@ -387,7 +421,7 @@ public class JobPostingService : IJobPostingService
         await _auditLog.LogAsync(recruiterUserId, "Recruiter", "JobDeadlineChanged", "JobPosting", job.Id,
             new { job.Title, ApplicationDeadlineUtc = applicationDeadlineUtc }, ct);
 
-        return ToDto(job);
+        return ToDto(job, includePreferredAnswers: true);
     }
 
     public async Task RecordShareAsync(int jobId, string? visitorKey, CancellationToken ct = default)
@@ -448,5 +482,153 @@ public class JobPostingService : IJobPostingService
         }
     }
 
-    private static JobPostingDto ToDto(JobPosting j) => JobPostingMapper.ToDto(j);
+    private static JobPostingDto ToDto(JobPosting j, bool includePreferredAnswers = false) => JobPostingMapper.ToDto(j, includePreferredAnswers);
+
+    /// <summary>Validates and syncs the recruiter's full desired question list against what's
+    /// currently stored — the same "full overwrite on each save" approach every other job
+    /// field already uses. A null <paramref name="requests"/> leaves existing questions
+    /// untouched entirely (used when a caller doesn't supply the field at all). A question
+    /// that already has at least one candidate answer can never have its type/options changed
+    /// or be deleted — see JobScreeningQuestion's doc comment — so a Published job's prior
+    /// applicants' answers can never be silently corrupted by a later edit.</summary>
+    private async Task SyncScreeningQuestionsAsync(int recruiterUserId, JobPosting job, IReadOnlyList<UpsertScreeningQuestionRequest>? requests, CancellationToken ct)
+    {
+        if (requests is null) return;
+
+        ValidateScreeningQuestions(requests);
+
+        var existingById = job.ScreeningQuestions.ToDictionary(q => q.Id);
+        var incomingIds = requests.Where(r => r.Id.HasValue).Select(r => r.Id!.Value).ToHashSet();
+
+        var added = 0;
+        var updated = 0;
+        var removed = 0;
+
+        // Delete questions omitted from the incoming list.
+        foreach (var existing in job.ScreeningQuestions.Where(q => !incomingIds.Contains(q.Id)).ToList())
+        {
+            if (existing.Answers.Count > 0)
+            {
+                throw new ConflictException("QUESTION_HAS_ANSWERS", $"\"{existing.QuestionText}\" already has candidate answers and can't be deleted.");
+            }
+            _db.ScreeningQuestionOptions.RemoveRange(existing.Options);
+            _db.JobScreeningQuestions.Remove(existing);
+            removed++;
+        }
+
+        foreach (var request in requests)
+        {
+            var questionType = Enum.Parse<ScreeningQuestionType>(request.QuestionType);
+            var options = (request.Options ?? Array.Empty<string>())
+                .Select((text, i) => new ScreeningQuestionOption { OptionText = text.Trim(), DisplayOrder = i })
+                .ToList();
+
+            if (request.Id.HasValue && existingById.TryGetValue(request.Id.Value, out var existing))
+            {
+                var typeOrOptionsChanged = existing.QuestionType != questionType
+                    || !existing.Options.Select(o => o.OptionText).SequenceEqual(options.Select(o => o.OptionText));
+
+                if (typeOrOptionsChanged && existing.Answers.Count > 0)
+                {
+                    throw new ConflictException("QUESTION_HAS_ANSWERS", $"\"{existing.QuestionText}\" already has candidate answers — its type and options can't be changed.");
+                }
+
+                existing.QuestionText = request.QuestionText.Trim();
+                existing.IsRequired = request.IsRequired;
+                existing.HelpText = string.IsNullOrWhiteSpace(request.HelpText) ? null : request.HelpText.Trim();
+                existing.DisplayOrder = request.DisplayOrder;
+                existing.PreferredAnswer = string.IsNullOrWhiteSpace(request.PreferredAnswer) ? null : request.PreferredAnswer.Trim();
+
+                if (typeOrOptionsChanged)
+                {
+                    existing.QuestionType = questionType;
+                    _db.ScreeningQuestionOptions.RemoveRange(existing.Options);
+                    existing.Options = options;
+                }
+
+                updated++;
+            }
+            else
+            {
+                job.ScreeningQuestions.Add(new JobScreeningQuestion
+                {
+                    JobPostingId = job.Id,
+                    QuestionText = request.QuestionText.Trim(),
+                    QuestionType = questionType,
+                    IsRequired = request.IsRequired,
+                    HelpText = string.IsNullOrWhiteSpace(request.HelpText) ? null : request.HelpText.Trim(),
+                    DisplayOrder = request.DisplayOrder,
+                    PreferredAnswer = string.IsNullOrWhiteSpace(request.PreferredAnswer) ? null : request.PreferredAnswer.Trim(),
+                    Options = options,
+                });
+                added++;
+            }
+        }
+
+        if (added == 0 && updated == 0 && removed == 0) return;
+
+        await _db.SaveChangesAsync(ct);
+
+        await _auditLog.LogAsync(recruiterUserId, "Recruiter", "ScreeningQuestionsUpdated", "JobPosting", job.Id,
+            new { job.Title, Added = added, Updated = updated, Removed = removed }, ct);
+    }
+
+    private const int MaxScreeningQuestionsPerJob = 10;
+    private static readonly ScreeningQuestionType[] ChoiceTypes = { ScreeningQuestionType.SingleChoice, ScreeningQuestionType.MultipleChoice };
+
+    private static void ValidateScreeningQuestions(IReadOnlyList<UpsertScreeningQuestionRequest> requests)
+    {
+        var errors = new Dictionary<string, string>();
+
+        if (requests.Count > MaxScreeningQuestionsPerJob)
+        {
+            errors["screeningQuestions"] = $"A job can have at most {MaxScreeningQuestionsPerJob} screening questions.";
+        }
+
+        var seenDisplayOrders = new HashSet<int>();
+        for (var i = 0; i < requests.Count; i++)
+        {
+            var r = requests[i];
+            var key = $"question_{i}";
+
+            if (string.IsNullOrWhiteSpace(r.QuestionText) || r.QuestionText.Trim().Length > 300)
+            {
+                errors[key] = "Question text is required and must be 300 characters or fewer.";
+            }
+            if (!Enum.TryParse<ScreeningQuestionType>(r.QuestionType, out var questionType))
+            {
+                errors[$"{key}_type"] = "Choose a valid question type.";
+            }
+            if (r.HelpText is { Length: > 500 })
+            {
+                errors[$"{key}_helpText"] = "Help text must be 500 characters or fewer.";
+            }
+            if (r.DisplayOrder < 0 || !seenDisplayOrders.Add(r.DisplayOrder))
+            {
+                errors[$"{key}_displayOrder"] = "Each question must have a unique, non-negative display order.";
+            }
+
+            if (Enum.TryParse<ScreeningQuestionType>(r.QuestionType, out var parsedType) && ChoiceTypes.Contains(parsedType))
+            {
+                var options = r.Options ?? Array.Empty<string>();
+                if (options.Count < 2)
+                {
+                    errors[$"{key}_options"] = "Choice questions need at least two options.";
+                }
+                else if (options.Any(o => string.IsNullOrWhiteSpace(o)))
+                {
+                    errors[$"{key}_options"] = "Options can't be empty.";
+                }
+                else if (options.Select(o => o.Trim().ToLowerInvariant()).Distinct().Count() != options.Count)
+                {
+                    errors[$"{key}_options"] = "Options must be unique.";
+                }
+            }
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException("Please fix the highlighted fields.", errors);
+        }
+    }
 }

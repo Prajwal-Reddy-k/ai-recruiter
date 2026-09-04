@@ -39,6 +39,9 @@ public static class DataSeeder
 
         // Same independent-guard reasoning as above, for the reviews/salary-insights/saved-searches/privacy batch.
         await SeedReviewsSalaryInsightsAndPrivacyDemoDataAsync(db, ct);
+
+        // Same independent-guard reasoning as above, for the job-application screening-questions batch.
+        await SeedJobScreeningQuestionsDemoDataAsync(db, ct);
     }
 
     private static async Task SeedCoreDemoDataAsync(AppDbContext db, CancellationToken ct)
@@ -895,6 +898,78 @@ public static class DataSeeder
         db.CandidateProfiles.Add(new CandidateProfile { UserId = pendingDeletionUser.Id, Headline = "Exploring a career change" });
 
         await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Job-application screening-questions demo content. Independently guarded and
+    /// looks up an existing seeded job/application by title/email, for the same reason as the
+    /// other feature-batch seed methods above — attaches a mix of question types to the
+    /// seeded "Senior Backend Engineer" job at Nimbus and backfills answers onto candidate1's
+    /// existing application to it, demonstrating the full editor/apply/review loop.</summary>
+    private static async Task SeedJobScreeningQuestionsDemoDataAsync(AppDbContext db, CancellationToken ct)
+    {
+        if (await db.JobScreeningQuestions.AnyAsync(ct))
+        {
+            return;
+        }
+
+        var job = await db.JobPostings.FirstAsync(j => j.Title == "Senior Backend Engineer", ct);
+        var candidate1Profile = await db.CandidateProfiles.FirstAsync(c => c.User.Email == $"candidate1{EmailDomain}", ct);
+        var application = await db.JobApplications.FirstOrDefaultAsync(a => a.JobPostingId == job.Id && a.CandidateProfileId == candidate1Profile.Id, ct);
+
+        var noticePeriodQuestion = new JobScreeningQuestion
+        {
+            JobPostingId = job.Id,
+            QuestionText = "What is your current notice period, in days?",
+            QuestionType = ScreeningQuestionType.Number,
+            IsRequired = true,
+            HelpText = "Let us know how soon you could join if selected.",
+            DisplayOrder = 0,
+            PreferredAnswer = "30",
+        };
+        var relocateQuestion = new JobScreeningQuestion
+        {
+            JobPostingId = job.Id,
+            QuestionText = "Are you willing to work from our Bengaluru office at least 3 days a week?",
+            QuestionType = ScreeningQuestionType.YesNo,
+            IsRequired = true,
+            DisplayOrder = 1,
+            PreferredAnswer = "Yes",
+        };
+        var stackQuestion = new JobScreeningQuestion
+        {
+            JobPostingId = job.Id,
+            QuestionText = "Which of these have you used in production?",
+            QuestionType = ScreeningQuestionType.MultipleChoice,
+            IsRequired = false,
+            HelpText = "Select all that apply.",
+            DisplayOrder = 2,
+            Options = new List<ScreeningQuestionOption>
+            {
+                new() { OptionText = "ASP.NET Core", DisplayOrder = 0 },
+                new() { OptionText = "Entity Framework Core", DisplayOrder = 1 },
+                new() { OptionText = "Docker", DisplayOrder = 2 },
+                new() { OptionText = "Kubernetes", DisplayOrder = 3 },
+            },
+        };
+        db.JobScreeningQuestions.AddRange(noticePeriodQuestion, relocateQuestion, stackQuestion);
+        await db.SaveChangesAsync(ct);
+
+        if (application is not null)
+        {
+            db.ScreeningAnswers.AddRange(
+                new ScreeningAnswer { JobApplicationId = application.Id, JobScreeningQuestionId = noticePeriodQuestion.Id, TextValue = "30", NumberValue = 30 },
+                new ScreeningAnswer { JobApplicationId = application.Id, JobScreeningQuestionId = relocateQuestion.Id, TextValue = "Yes" },
+                new ScreeningAnswer
+                {
+                    JobApplicationId = application.Id,
+                    JobScreeningQuestionId = stackQuestion.Id,
+                    SelectedOptions = stackQuestion.Options
+                        .Where(o => o.OptionText is "ASP.NET Core" or "Entity Framework Core" or "Docker")
+                        .Select(o => new ScreeningAnswerSelectedOption { ScreeningQuestionOptionId = o.Id })
+                        .ToList(),
+                });
+            await db.SaveChangesAsync(ct);
+        }
     }
 
     private static SkillAssessmentQuestion Q(AssessmentCategory category, string text, string a, string b, string c, string d, int correct, string? explanation = null) =>

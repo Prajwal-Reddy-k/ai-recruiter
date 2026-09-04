@@ -23,6 +23,8 @@ import JobCard from "../components/JobCard";
 import CreateReferralModal from "../components/CreateReferralModal";
 import VerifiedBadge from "../components/VerifiedBadge";
 import ShareMenu from "../components/ShareMenu";
+import ScreeningQuestionsForm, { buildScreeningAnswerRequests, type ScreeningAnswerValue } from "../components/ScreeningQuestionsForm";
+import { getFieldErrors } from "../utils/errors";
 
 type ApplyState = "idle" | "applying" | "applied" | "error";
 
@@ -51,11 +53,15 @@ export default function JobDetailPage() {
   const [profile, setProfile] = useState<CandidateProfile | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | "">("");
   const [coverLetterText, setCoverLetterText] = useState("");
+  const [answers, setAnswers] = useState<Record<number, ScreeningAnswerValue>>({});
+  const [answerErrors, setAnswerErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     setApplyState("idle");
+    setAnswers({});
+    setAnswerErrors({});
     Promise.all([getJobById(Number(id)), getOpenJobs()])
       .then(([jobData, allJobs]) => {
         setJob(jobData);
@@ -135,16 +141,42 @@ export default function JobDetailPage() {
     setCoverLetterText(buildCoverLetterDraft(template, profile, job.title, job.companyName));
   }
 
+  function validateAnswers(): boolean {
+    if (!job) return true;
+    const errors: Record<string, string> = {};
+    for (const q of job.screeningQuestions) {
+      if (!q.isRequired) continue;
+      const value = answers[q.id];
+      const hasAnswer =
+        (value?.textValue?.trim().length ?? 0) > 0 ||
+        value?.numberValue !== undefined ||
+        (value?.selectedOptionIds?.length ?? 0) > 0;
+      if (!hasAnswer) errors[`question_${q.id}`] = "This question is required.";
+    }
+    setAnswerErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
+
   async function handleApply() {
     if (!job) return;
+    if (!validateAnswers()) {
+      setApplyError("Please answer all required questions.");
+      setApplyState("error");
+      return;
+    }
     setApplyState("applying");
     setApplyError(null);
+    setAnswerErrors({});
     try {
-      await applyToJob(job.id, coverLetterText.trim() || undefined);
+      // Answers (and the cover letter) are deliberately left in state on failure — the
+      // candidate should never have to re-enter everything after a submission error.
+      await applyToJob(job.id, coverLetterText.trim() || undefined, buildScreeningAnswerRequests(answers));
       setApplyState("applied");
       setApplyModalOpen(false);
       toast.success("Application submitted.");
     } catch (err) {
+      const fieldErrors = getFieldErrors(err);
+      if (fieldErrors) setAnswerErrors(fieldErrors);
       setApplyError(getErrorMessage(err, "Failed to apply"));
       setApplyState("error");
     }
@@ -338,6 +370,14 @@ export default function JobDetailPage() {
             maxLength={4000}
           />
         </FormField>
+        {job.screeningQuestions.length > 0 && (
+          <ScreeningQuestionsForm
+            questions={job.screeningQuestions}
+            values={answers}
+            errors={answerErrors}
+            onChange={(questionId, value) => setAnswers((prev) => ({ ...prev, [questionId]: value }))}
+          />
+        )}
         {applyState === "error" && <p className="error">{applyError}</p>}
       </Modal>
 

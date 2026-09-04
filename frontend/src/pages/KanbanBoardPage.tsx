@@ -140,6 +140,9 @@ export default function KanbanBoardPage() {
                           {app.matchScore !== null && `Match ${app.matchScore}/100 · `}
                           {new Date(app.createdAt).toLocaleDateString()}
                         </p>
+                        {app.requiredQuestionsTotalCount > 0 && (
+                          <p className="hint">Screening: {app.requiredQuestionsAnsweredCount}/{app.requiredQuestionsTotalCount} required answered</p>
+                        )}
                         <label className="hint" htmlFor={`move-${app.id}`}>Move to…</label>
                         <select
                           id={`move-${app.id}`}

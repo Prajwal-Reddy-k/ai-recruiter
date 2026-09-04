@@ -42,4 +42,5 @@ public class JobPosting : BaseEntity
     public ICollection<JobAssignment> Assignments { get; set; } = new List<JobAssignment>();
     public ICollection<Invitation> Invitations { get; set; } = new List<Invitation>();
     public ICollection<Referral> Referrals { get; set; } = new List<Referral>();
+    public ICollection<JobScreeningQuestion> ScreeningQuestions { get; set; } = new List<JobScreeningQuestion>();
 }

@@ -6,13 +6,14 @@ import { getMyJobTemplates } from "../api/jobTemplates";
 import { getOnboardingStatus } from "../api/recruiters";
 import { getErrorMessage } from "../utils/errors";
 import { useToast } from "../context/ToastContext";
-import type { JobQualityScore, JobTemplate } from "../types";
+import type { JobQualityScore, JobTemplate, UpsertScreeningQuestionRequest } from "../types";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import FormField from "../components/ui/FormField";
 import EmptyState from "../components/ui/EmptyState";
 import IndiaLocationSelector from "../components/IndiaLocationSelector";
 import JobQualityScoreBadge from "../components/JobQualityScoreBadge";
+import ScreeningQuestionsEditor from "../components/ScreeningQuestionsEditor";
 
 interface FieldErrors {
   title?: string;
@@ -54,6 +55,7 @@ export default function PostJobPage() {
   const [templates, setTemplates] = useState<JobTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [savedQualityScore, setSavedQualityScore] = useState<JobQualityScore | null>(null);
+  const [screeningQuestions, setScreeningQuestions] = useState<UpsertScreeningQuestionRequest[]>([]);
   const navigate = useNavigate();
   const toast = useToast();
 
@@ -115,6 +117,16 @@ export default function PostJobPage() {
         setMaxExperienceYears(job.maxExperienceYears?.toString() ?? "");
         setMinSalary(job.minSalary?.toString() ?? "");
         setMaxSalary(job.maxSalary?.toString() ?? "");
+        setScreeningQuestions(job.screeningQuestions.map((q) => ({
+          id: q.id,
+          questionText: q.questionText,
+          questionType: q.questionType,
+          isRequired: q.isRequired,
+          helpText: q.helpText ?? undefined,
+          options: q.options.map((o) => o.optionText),
+          displayOrder: q.displayOrder,
+          preferredAnswer: q.preferredAnswer ?? undefined,
+        })));
       })
       .finally(() => setLoadingJob(false));
   }, [id]);
@@ -144,6 +156,7 @@ export default function PostJobPage() {
       maxExperienceYears: maxExperienceYears ? Number(maxExperienceYears) : undefined,
       minSalary: minSalary ? Number(minSalary) : undefined,
       maxSalary: maxSalary ? Number(maxSalary) : undefined,
+      screeningQuestions,
     };
   }
 
@@ -312,6 +325,11 @@ export default function PostJobPage() {
               cityError={fieldErrors.city}
               required={!isEditMode}
             />
+          </div>
+
+          <div className="form-section">
+            <h3 className="form-section-title">Application Questions</h3>
+            <ScreeningQuestionsEditor questions={screeningQuestions} onChange={setScreeningQuestions} />
           </div>
 
           {fieldErrors.general && <p className="error" style={{ marginBottom: "1rem" }}>{fieldErrors.general}</p>}

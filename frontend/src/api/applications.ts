@@ -1,8 +1,8 @@
 import apiClient from "./client";
-import type { JobApplication, JobApplicationDetail } from "../types";
+import type { ApplicantScreeningFilter, JobApplication, JobApplicationDetail, SubmitScreeningAnswerRequest } from "../types";
 
-export async function applyToJob(jobId: number, coverNote?: string): Promise<JobApplication> {
-  const { data } = await apiClient.post<JobApplication>(`/jobs/${jobId}/apply`, { coverNote });
+export async function applyToJob(jobId: number, coverNote?: string, answers?: SubmitScreeningAnswerRequest[]): Promise<JobApplication> {
+  const { data } = await apiClient.post<JobApplication>(`/jobs/${jobId}/apply`, { coverNote, answers });
   return data;
 }
 
@@ -16,8 +16,8 @@ export async function getApplicationDetail(id: number): Promise<JobApplicationDe
   return data;
 }
 
-export async function getApplicationsForJob(jobId: number): Promise<JobApplication[]> {
-  const { data } = await apiClient.get<JobApplication[]>(`/jobs/${jobId}/applications`);
+export async function getApplicationsForJob(jobId: number, filter?: ApplicantScreeningFilter): Promise<JobApplication[]> {
+  const { data } = await apiClient.get<JobApplication[]>(`/jobs/${jobId}/applications`, { params: filter });
   return data;
 }
 

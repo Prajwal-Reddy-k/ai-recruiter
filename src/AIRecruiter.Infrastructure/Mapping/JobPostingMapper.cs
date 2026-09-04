@@ -7,7 +7,7 @@ namespace AIRecruiter.Infrastructure.Mapping;
 
 public static class JobPostingMapper
 {
-    public static JobPostingDto ToDto(JobPosting j) => new(
+    public static JobPostingDto ToDto(JobPosting j, bool includePreferredAnswers = false) => new(
         j.Id,
         j.Title,
         j.Description,
@@ -31,5 +31,13 @@ public static class JobPostingMapper
         j.PublishedAt,
         j.ApplicationDeadlineUtc,
         j.ShareCount,
-        j.Company.VerificationStatus == CompanyVerificationStatus.Verified);
+        j.Company.VerificationStatus == CompanyVerificationStatus.Verified,
+        j.ScreeningQuestions
+            .OrderBy(q => q.DisplayOrder)
+            .Select(q => new ScreeningQuestionDto(
+                q.Id, q.QuestionText, q.QuestionType.ToString(), q.IsRequired, q.HelpText,
+                q.Options.OrderBy(o => o.DisplayOrder).Select(o => new ScreeningQuestionOptionDto(o.Id, o.OptionText, o.DisplayOrder)).ToList(),
+                q.DisplayOrder,
+                includePreferredAnswers ? q.PreferredAnswer : null))
+            .ToList());
 }

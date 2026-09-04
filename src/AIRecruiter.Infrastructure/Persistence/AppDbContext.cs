@@ -46,6 +46,10 @@ public class AppDbContext : DbContext
     public DbSet<Referral> Referrals => Set<Referral>();
     public DbSet<CompanyFollow> CompanyFollows => Set<CompanyFollow>();
     public DbSet<CompanyReview> CompanyReviews => Set<CompanyReview>();
+    public DbSet<JobScreeningQuestion> JobScreeningQuestions => Set<JobScreeningQuestion>();
+    public DbSet<ScreeningQuestionOption> ScreeningQuestionOptions => Set<ScreeningQuestionOption>();
+    public DbSet<ScreeningAnswer> ScreeningAnswers => Set<ScreeningAnswer>();
+    public DbSet<ScreeningAnswerSelectedOption> ScreeningAnswerSelectedOptions => Set<ScreeningAnswerSelectedOption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -556,6 +560,50 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<CompanyReview>()
             .HasIndex(r => new { r.CandidateProfileId, r.CompanyId })
             .IsUnique();
+
+        // --- Job screening questions (recruiter-authored) & candidate answers ---
+        modelBuilder.Entity<JobScreeningQuestion>()
+            .HasOne(q => q.JobPosting)
+            .WithMany(j => j.ScreeningQuestions)
+            .HasForeignKey(q => q.JobPostingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ScreeningQuestionOption>()
+            .HasOne(o => o.JobScreeningQuestion)
+            .WithMany(q => q.Options)
+            .HasForeignKey(o => o.JobScreeningQuestionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ScreeningAnswer>()
+            .HasOne(a => a.JobApplication)
+            .WithMany(a => a.ScreeningAnswers)
+            .HasForeignKey(a => a.JobApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // Restrict (not Cascade) — mirrors SkillAssessmentAnswer.Question exactly, so a
+        // question that already has an answer can never be deleted at the DB level, backing
+        // up the service-level check in JobPostingService.SyncScreeningQuestionsAsync.
+        modelBuilder.Entity<ScreeningAnswer>()
+            .HasOne(a => a.JobScreeningQuestion)
+            .WithMany(q => q.Answers)
+            .HasForeignKey(a => a.JobScreeningQuestionId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ScreeningAnswer>()
+            .HasIndex(a => new { a.JobApplicationId, a.JobScreeningQuestionId })
+            .IsUnique();
+
+        modelBuilder.Entity<ScreeningAnswerSelectedOption>()
+            .HasOne(o => o.ScreeningAnswer)
+            .WithMany(a => a.SelectedOptions)
+            .HasForeignKey(o => o.ScreeningAnswerId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ScreeningAnswerSelectedOption>()
+            .HasOne(o => o.ScreeningQuestionOption)
+            .WithMany()
+            .HasForeignKey(o => o.ScreeningQuestionOptionId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

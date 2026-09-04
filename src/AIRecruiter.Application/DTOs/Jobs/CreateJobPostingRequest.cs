@@ -15,7 +15,8 @@ public record CreateJobPostingRequest(
     string? Locality,
     bool IsRemote,
     JobType JobType,
-    bool SaveAsDraft = false);
+    bool SaveAsDraft = false,
+    IReadOnlyList<UpsertScreeningQuestionRequest>? ScreeningQuestions = null);
 
 public record UpdateJobPostingRequest(
     string Title,
@@ -29,6 +30,7 @@ public record UpdateJobPostingRequest(
     string? State,
     string? Locality,
     bool IsRemote,
-    JobType JobType);
+    JobType JobType,
+    IReadOnlyList<UpsertScreeningQuestionRequest>? ScreeningQuestions = null);
 
 public record RecruiterJobSummaryDto(JobPostingDto Job, int ApplicationCount, JobQualityScoreDto QualityScore, string? SalaryGuidance = null);

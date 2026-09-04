@@ -1123,6 +1123,16 @@ input[type="checkbox"] {
   width: auto;
 }
 
+.filter-option-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.screening-questions-form {
+  margin-top: 0.5rem;
+}
+
 .filter-chip-list {
   display: flex;
   flex-wrap: wrap;

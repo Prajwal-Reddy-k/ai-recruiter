@@ -17,7 +17,9 @@ public record JobApplicationDto(
     string? JobLocation = null,
     DateTime? NextInterviewAtUtc = null,
     string? CandidateAvatarUrl = null,
-    int? CandidateProfileId = null);
+    int? CandidateProfileId = null,
+    int RequiredQuestionsAnsweredCount = 0,
+    int RequiredQuestionsTotalCount = 0);
 
 public record UpdateApplicationStatusRequest(ApplicationStatus Status, string? Note);
 
@@ -40,4 +42,5 @@ public record JobApplicationDetailDto(
     IReadOnlyList<string> SuggestedImprovements,
     string? ScoringExplanation,
     IReadOnlyList<StatusHistoryEntryDto> StatusHistory,
-    string NextAction);
+    string NextAction,
+    IReadOnlyList<ScreeningAnswerDto>? ScreeningAnswers = null);

@@ -24,4 +24,5 @@ public class JobApplication : BaseEntity
     public ICollection<Interview> Interviews { get; set; } = new List<Interview>();
     public ICollection<Message> Messages { get; set; } = new List<Message>();
     public ICollection<Offer> Offers { get; set; } = new List<Offer>();
+    public ICollection<ScreeningAnswer> ScreeningAnswers { get; set; } = new List<ScreeningAnswer>();
 }

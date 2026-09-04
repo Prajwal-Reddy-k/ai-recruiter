@@ -315,6 +315,29 @@ export default function ApplicationDetailPage() {
           </>
         )}
 
+        {application.screeningAnswers.length > 0 && (
+          <>
+            <h3 style={{ marginBottom: "0.5rem" }}>Screening answers</h3>
+            <ul className="job-list-compact" style={{ marginBottom: "1.5rem" }}>
+              {application.screeningAnswers.map((a) => (
+                <li key={a.questionId} className="job-card job-card-compact">
+                  <h4>{a.questionText}</h4>
+                  <p>
+                    {a.selectedOptionTexts.length > 0
+                      ? a.selectedOptionTexts.join(", ")
+                      : a.numberValue !== null
+                      ? a.numberValue
+                      : a.textValue || <span className="hint">No answer provided.</span>}
+                  </p>
+                  {a.preferredAnswer != null && (
+                    <p className="hint">Recruiter's preferred answer (private): {a.preferredAnswer}</p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
         {actionError && <p className="error" style={{ marginBottom: "1rem" }}>{actionError}</p>}
 
         <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "center" }}>

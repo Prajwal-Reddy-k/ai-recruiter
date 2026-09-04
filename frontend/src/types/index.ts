@@ -44,6 +44,38 @@ export interface JobPosting {
   applicationDeadlineUtc: string | null;
   shareCount: number;
   companyIsVerified: boolean;
+  screeningQuestions: ScreeningQuestion[];
+}
+
+export type ScreeningQuestionType = "ShortText" | "LongText" | "YesNo" | "SingleChoice" | "MultipleChoice" | "Number" | "Url";
+
+export interface ScreeningQuestionOption {
+  id: number;
+  optionText: string;
+  displayOrder: number;
+}
+
+export interface ScreeningQuestion {
+  id: number;
+  questionText: string;
+  questionType: ScreeningQuestionType;
+  isRequired: boolean;
+  helpText: string | null;
+  options: ScreeningQuestionOption[];
+  displayOrder: number;
+  /** Recruiter-only reference answer — never present for a candidate/public viewer. */
+  preferredAnswer?: string | null;
+}
+
+export interface UpsertScreeningQuestionRequest {
+  id?: number;
+  questionText: string;
+  questionType: ScreeningQuestionType;
+  isRequired: boolean;
+  helpText?: string;
+  options?: string[];
+  displayOrder: number;
+  preferredAnswer?: string;
 }
 
 export interface CreateJobPostingRequest {
@@ -60,6 +92,7 @@ export interface CreateJobPostingRequest {
   isRemote: boolean;
   jobType: string;
   saveAsDraft?: boolean;
+  screeningQuestions?: UpsertScreeningQuestionRequest[];
 }
 
 export type UpdateJobPostingRequest = Omit<CreateJobPostingRequest, "saveAsDraft">;
@@ -226,6 +259,8 @@ export interface JobApplication {
   nextInterviewAtUtc: string | null;
   candidateAvatarUrl: string | null;
   candidateProfileId: number | null;
+  requiredQuestionsAnsweredCount: number;
+  requiredQuestionsTotalCount: number;
 }
 
 export interface StatusHistoryEntry {
@@ -254,6 +289,35 @@ export interface JobApplicationDetail {
   scoringExplanation: string | null;
   statusHistory: StatusHistoryEntry[];
   nextAction: string;
+  screeningAnswers: ScreeningAnswer[];
+}
+
+export interface SubmitScreeningAnswerRequest {
+  questionId: number;
+  textValue?: string;
+  numberValue?: number;
+  selectedOptionIds?: number[];
+}
+
+export interface ScreeningAnswer {
+  questionId: number;
+  questionText: string;
+  questionType: ScreeningQuestionType;
+  isRequired: boolean;
+  textValue: string | null;
+  numberValue: number | null;
+  selectedOptionTexts: string[];
+  /** Only populated when the viewer is the owning recruiter. */
+  preferredAnswer?: string | null;
+}
+
+export interface ApplicantScreeningFilter {
+  questionId?: number;
+  yesNo?: "Yes" | "No";
+  optionId?: number;
+  minNumber?: number;
+  maxNumber?: number;
+  requiredAnsweredOnly?: boolean;
 }
 
 export interface LocationSuggestion {
