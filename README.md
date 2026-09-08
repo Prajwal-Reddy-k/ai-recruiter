@@ -1,5 +1,9 @@
 # AI Recruiter
 
+[![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/ci.yml)
+
+> Replace `OWNER/REPO` above with this repository's actual GitHub path once pushed — the badge and link only resolve after that.
+
 An India-focused recruitment platform — candidates search and apply to jobs with an explainable, locally-computed resume match score; recruiters run a complete job lifecycle (draft → publish → close → archive), manage applicants on a Kanban board, schedule interviews, and search candidates across their whole company with CSV export. Built end-to-end with a .NET 10 / ASP.NET Core Clean Architecture backend and a React 19 + TypeScript frontend, and designed to run entirely on free, self-hosted, or local tooling — no paid API is required for any core feature.
 
 📖 **Full documentation package**: see [`docs/`](docs/) — start with [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) for the complete feature list, user journeys, and tech stack, or jump straight to a topic below.
@@ -15,9 +19,9 @@ _No screenshots are checked into this repository yet._ To add some: run the app 
 | Backend | ASP.NET Core Web API on .NET 10, Clean Architecture (Domain → Application → Infrastructure → API), EF Core 10 + SQL Server/LocalDB |
 | Frontend | React 19 + TypeScript, Vite, react-router-dom, axios |
 | Auth | JWT Bearer tokens, BCrypt password hashing, role-based (Candidate / Recruiter / Admin) + ownership authorization |
-| Core features | India-only structured job locations · job draft/publish/close/archive lifecycle · applications with full status history, filters/sort, and a visual timeline · explainable local resume matching · Kanban applicant board · interview scheduling with `.ics` export · saved jobs & job alerts · company-scoped candidate search + CSV export · privacy-conscious job-view tracking · analytics · audit trail · secure forgot/reset password with email verification codes · candidate profile photo upload with in-browser crop/zoom/rotate and server-side resize/validation · structured resume builder (experience/education/certifications/projects) with a profile-strength score and client-side PDF export · reusable cover-letter templates merged into a job-specific letter at apply time · locally seeded, timed skill assessments with opt-in recruiter-visible badges · an optional public shareable candidate portfolio page · a career-goals tracker with deterministic progress suggestions · digital offer management with accept/decline and a client-side offer-summary PDF · private, company-scoped recruiter talent pools with notes/tags · a no-email employee-referral workflow with shareable tokenized links · candidate dashboard with next-best-actions · footer with deep-linked popular job-role searches · reusable job templates · recruiter–candidate in-app messaging · interview feedback scorecards · hiring-team roles & permissions · recruiter reports with CSV export · admin moderation & user suspension · candidate availability/preferences & profile-visibility controls · recruiter candidate-invitation workflow · job application deadlines & auto-expiry · installable Progressive Web App · public landing page with live platform stats · job discovery with compare/sort/recent-searches/mobile filter drawer · in-app Help & Support with a feedback inbox · self-service account settings (password change, notification preferences, account deletion) · light/dark theme · company verification with a "Platform Verified" badge · a recruiter-only deterministic job quality score · follow-companies with new-job notifications · job sharing with aggregate share counts · a personalized activity timeline · moderated, anonymous company reviews & ratings · locally computed salary insights · advanced saved searches with default-search and match notifications · a privacy center with JSON/CSV account-data export and grace-period account deletion · customizable per-job application screening questions with recruiter-only preferred answers and applicant filtering |
+| Core features | India-only structured job locations · job draft/publish/close/archive lifecycle · applications with full status history, filters/sort, and a visual timeline · explainable local resume matching · Kanban applicant board · interview scheduling with `.ics` export · saved jobs & job alerts · company-scoped candidate search + CSV export · privacy-conscious job-view tracking · analytics · audit trail · secure forgot/reset password with email verification codes · candidate profile photo upload with in-browser crop/zoom/rotate and server-side resize/validation · structured resume builder (experience/education/certifications/projects) with a profile-strength score and client-side PDF export · reusable cover-letter templates merged into a job-specific letter at apply time · locally seeded, timed skill assessments with opt-in recruiter-visible badges · an optional public shareable candidate portfolio page · a career-goals tracker with deterministic progress suggestions · digital offer management with accept/decline and a client-side offer-summary PDF · private, company-scoped recruiter talent pools with notes/tags · a no-email employee-referral workflow with shareable tokenized links · candidate dashboard with next-best-actions · footer with deep-linked popular job-role searches · reusable job templates · recruiter–candidate in-app messaging · interview feedback scorecards · hiring-team roles & permissions · recruiter reports with CSV export · admin moderation & user suspension · candidate availability/preferences & profile-visibility controls · recruiter candidate-invitation workflow · job application deadlines & auto-expiry · installable Progressive Web App · public landing page with live platform stats · job discovery with compare/sort/recent-searches/mobile filter drawer · in-app Help & Support with a feedback inbox · self-service account settings (password change, notification preferences, account deletion) · light/dark theme · company verification with a "Platform Verified" badge · a recruiter-only deterministic job quality score · follow-companies with new-job notifications · job sharing with aggregate share counts · a personalized activity timeline · moderated, anonymous company reviews & ratings · locally computed salary insights · advanced saved searches with default-search and match notifications · a privacy center with JSON/CSV account-data export and grace-period account deletion · customizable per-job application screening questions with recruiter-only preferred answers and applicant filtering · rotating single-use refresh tokens with theft-detection chain revocation · server-side pagination for job search and candidate search · framework-level rate limiting on auth/export/general API traffic · real per-candidate "recently viewed jobs" history · a Playwright end-to-end test suite with a GitHub Actions CI pipeline |
 | Cost | Zero — every optional third-party integration (Cloudinary, Adzuna, SMTP) is behind an interface and only activates when credentials are configured; falls back gracefully otherwise. Image cropping (`react-easy-crop`), PDF export (`jsPDF`, used for both resumes and offer summaries), skill assessments, career-goal suggestions, and offer/referral tokens all run entirely client-side or on deterministic local/cryptographic logic — no paid image, assessment, document, e-signature, or AI API is used anywhere |
-| Tests | 523 passing (xUnit + EF Core InMemory + Moq) |
+| Tests | 548 passing (xUnit + EF Core InMemory + Moq, including WebApplicationFactory-based rate-limiter integration tests) + a 3-journey Playwright E2E suite |
 
 Full, verified feature-by-feature status table: [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md#feature-status).
 
@@ -305,6 +309,100 @@ Recruiters can attach custom qualifying questions to a job posting — candidate
 5. On your own application detail page, confirm your answers show but no preferred answer appears anywhere in the page or network response.
 6. Log back in as `recruiter1@demo.airecruiter.dev`, open the applicant list for the job, and confirm the preferred answers are visible on the application detail page; filter the applicant list by the Yes/No question and by "all required answered."
 7. Log in as `recruiter2@demo.airecruiter.dev` (a different company) and confirm both the applicant list and the individual application detail page for this job are inaccessible (403).
+
+## Refresh Tokens for Session Continuity
+
+Login/register now issue a long-lived, single-use **refresh token** alongside the existing short-lived JWT access token, so a session survives past the access token's 120-minute expiry without forcing a re-login.
+
+- **Storage**: only a SHA-256 hash of the refresh token is ever persisted (`RefreshToken.TokenHash`) — the same CSPRNG-generate/hash-at-rest pattern the password-reset flow already used. The raw token is returned to the client exactly once, at issuance.
+- **Rotation**: `POST /api/auth/refresh` atomically revokes the presented token and issues a new access token + a new child refresh token in one call. A concurrency token on `RevokedAtUtc` makes a race between two simultaneous redemptions of the same token resolve to exactly one winner — the loser is treated as reuse (see below), never as a second valid child.
+- **Theft detection**: presenting an already-rotated (or already-revoked) refresh token immediately revokes every token in that chain for the user, and the request is rejected — the assumption is that reuse means the token was copied/stolen.
+- **Revoke-all on security events**: password reset, password change, and admin suspension each revoke every one of a user's refresh tokens, exactly where they already rotate `User.SecurityStamp` — so a compromised or ended session is fully cut off, not just its access token.
+- **Frontend**: the refresh token is stored the same way the access token is (`localStorage`); a 401 caused by access-token expiry triggers a silent background refresh-and-retry-once, and concurrent requests that all 401 at once share a single in-flight refresh call rather than each racing their own. Logout revokes the current refresh token server-side (best-effort) before clearing local storage.
+- **No JWT validation was weakened** — signature, expiry, and the existing security-stamp check in `Program.cs` are unchanged; refresh tokens are a second, independent credential.
+
+**Migration**: `AddRefreshTokens` — one new table, purely additive.
+
+**Manual test steps**:
+1. Log in as any seeded user and confirm the network response includes a `refreshToken` alongside `token`.
+2. Call `POST /api/auth/refresh` with that refresh token — confirm you get back a new access token and a *different* refresh token, and that redeeming the original token again now fails with 401.
+3. Change your password (Account Settings) and confirm any refresh token issued before the change now fails to redeem.
+4. In the browser, manually expire/corrupt the stored access token and make any authenticated request — confirm it's silently retried after a refresh rather than redirecting to `/login`.
+
+## Pagination for Job Search and Candidate Search
+
+`GET /api/jobs` and `GET /api/recruiters/candidates` now accept `page`/`pageSize` query parameters and return a `{ items, totalCount, page, pageSize }` wrapper (mirroring the existing Adzuna external-job-search pagination shape) instead of the full result set.
+
+- Defaults to page 1 / 20 items; `pageSize` is clamped to a maximum of 50 server-side regardless of what's requested.
+- Sorting/filtering still composes correctly with paging — filters narrow the query (and, for candidate search, the skills filter still applies in-memory) before `Skip`/`Take` is applied, so page boundaries are stable.
+- **`/jobs`** now fetches pages incrementally — "Load more roles" requests the next server page rather than slicing an already-fully-loaded array — while every existing client-side filter chip, sort option, and search-suggestion still works against the accumulated set of loaded jobs. The **Compare** feature (up to 3 jobs) now keeps working correctly across pages, since a job stays in the accumulated list once loaded rather than disappearing when the next page replaces it.
+- **Candidate Search** gained Previous/Next paging controls with a page indicator; company-scoping and profile-visibility rules are enforced exactly as before, unchanged by paging.
+- **CSV export is unaffected** — both export endpoints ignore paging entirely and always export the full filtered result set.
+
+**No migration required** — purely additive DTO/query changes.
+
+**Manual test steps**:
+1. On `/jobs`, confirm the initial page loads a bounded set of jobs and "Load more roles" appears if more exist; click it and confirm new jobs are appended, not replacing the current ones.
+2. Select a job on the first page for **Compare**, load a second page, and confirm the first job is still shown as selected and still appears in the Compare modal.
+3. As a recruiter, open Candidate Search, run a search that matches more than 20 candidates, and page through with Previous/Next — confirm the count and pages line up and no candidate appears twice.
+4. Export CSV from Candidate Search after paging to page 2 — confirm the downloaded file contains the full filtered set, not just the current page.
+
+## Rate Limiting via ASP.NET Core Built-in Middleware
+
+Framework-level rate limiting (`Microsoft.AspNetCore.RateLimiting`) now sits in the pipeline alongside the existing `IIpRateLimiter` business-rule limiters (forgot-password, referrals, feedback, company reviews, etc.), which are unchanged and still enforce their own finer-grained, longer-window limits.
+
+- **Policies** (all partitioned by client IP, for both anonymous and authenticated routes — configurable in `appsettings.json` under `RateLimiting`): `auth` (strict — `AuthController` as a whole: login, register, forgot/verify/reset-password, refresh, logout), `export` (CSV/report export endpoints), and `general` (a global fallback for everything else, automatically overridden by the two policies above wherever they apply — nothing is ever double-limited).
+- **429 responses** always use the same `application/problem+json` shape the rest of the app already uses for errors, with a `Retry-After` header and an `errorCode` of `RATE_LIMITED` — including reconciling the one endpoint (`AccountController.Export`'s existing per-user `IIpRateLimiter` check) that previously returned an ad-hoc response body.
+- Limits are configuration-driven (`RateLimiting:Auth`/`General`/`Export`, each a `PermitLimit`/`WindowSeconds` pair), following the same options-binding convention as `Smtp:*`.
+
+**No migration required.**
+
+**Manual test steps**:
+1. Send 11+ rapid `POST /api/auth/login` requests from the same machine — confirm the 11th+ returns `429` with a `Retry-After` header and a `RATE_LIMITED` error body, while the first 10 behave normally (401 for bad credentials).
+2. Confirm normal browsing (`GET /api/jobs`, a few requests) is unaffected by the general policy.
+3. Confirm the feedback/referral endpoints' existing `IIpRateLimiter` limits still work exactly as before (their own tests are unchanged and still pass).
+4. As a recruiter, call a CSV export endpoint (e.g. `/api/recruiters/reports/export/jobs`) more than the configured export limit within a minute — confirm a 429 rather than the export endpoint just running slowly or erroring.
+
+## Recently-Viewed Jobs Backed by Real Data
+
+The candidate dashboard's "Recently viewed" section is now backed by a real `JobView` table (`CandidateProfileId`, `JobPostingId`, `ViewedAt`) — previously it showed a couple of open jobs as clearly-labeled sample data, since no view-tracking existed.
+
+- Visiting a job detail page while logged in as a candidate records (or updates) a view row for that candidate+job — a repeat visit bumps `ViewedAt` rather than creating a duplicate (enforced by a unique index).
+- The dashboard shows the candidate's own most-recently-viewed 10 distinct jobs, most-recent first. A job that's since closed/been archived still appears (history is history) but is marked "No longer open" rather than silently disappearing.
+- This is entirely separate from the existing anonymous, in-memory, de-duplicated `JobPosting.ViewCount` used for recruiter-facing analytics — that mechanism never stores a candidate id and is untouched by this feature; the two do not interact.
+- Every query is scoped to the calling candidate's own resolved profile id — there is no code path that can return another candidate's view history. Recruiters, admins, and anonymous visitors never create `JobView` rows (the recording endpoint is `[Authorize(Roles = "Candidate")]`).
+
+**Migration**: `AddJobViews` — one new table, purely additive.
+
+**Manual test steps**:
+1. Log in as a candidate, open a job's detail page, then visit the candidate dashboard and confirm it appears under "Recently viewed" (no "Sample data" label anymore).
+2. Revisit the same job and confirm the dashboard still shows only one entry for it (moved to the top, not duplicated).
+3. As a recruiter, close that job, then revisit the candidate dashboard and confirm the job still appears but now shows "No longer open".
+4. Confirm recruiters and logged-out visitors browsing jobs never affect a candidate's "Recently viewed" list.
+
+## Automated Playwright E2E Tests + CI Pipeline
+
+A Playwright suite (`frontend/e2e/`) now exercises three high-value journeys against the real running app (real backend + real frontend, no mocked network calls), plus a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs the full xUnit suite and this E2E suite on every pull request using a Dockerized SQL Server — no paid CI or database service.
+
+- **Journeys covered**: (1) recruiter posts a job → candidate applies → recruiter schedules an interview → candidate accepts → downloads the `.ics` file; (2) candidate applies → recruiter sends an offer → candidate accepts it → application status becomes **Hired**; (3) a negative path — applying to a closed job is rejected with a clear inline error and a `409`, never a `500`.
+- **Deterministic state**: a test-only `POST /api/test/reset-seed` endpoint drops and reseeds a dedicated database between specs — it's strictly gated behind `ASPNETCORE_ENVIRONMENT=Testing` (`TestController.ResetSeed`) and returns `404` in every other environment, so it is never reachable in Development or Production. Specs run sequentially (`workers: 1` in `playwright.config.ts`) since they share this one seeded database.
+- **Running locally**:
+  ```bash
+  cd frontend
+  npm install
+  npx playwright install --with-deps chromium
+  npx playwright test          # starts the backend (Testing env) and frontend dev server itself
+  npx playwright show-report   # view the HTML report after a run
+  ```
+  This requires a local SQL Server/LocalDB instance reachable from `src/AIRecruiter.API/appsettings.Testing.json`'s connection string — point it at a dedicated database (never your dev database; a Testing-environment reset drops it).
+- **CI**: every pull request runs `dotnet test` against a `mcr.microsoft.com/mssql/server` service container, then builds the frontend, starts both servers, and runs the Playwright suite — see the CI badge at the top of this file. Playwright's HTML report and the backend log are uploaded as workflow artifacts on every run (pass or fail) for debugging.
+
+**No migration required** beyond the ones already listed above (the E2E database is just a normal Testing-environment database, reset and reseeded by `DataSeeder.ResetForTestingAsync`).
+
+**Manual test steps**:
+1. Run `npx playwright test` locally per the instructions above and confirm all 3 specs pass.
+2. Open `npx playwright show-report` and confirm the HTML report renders with all 3 journeys green.
+3. Push a branch and open a pull request — confirm the `CI` workflow runs and both the unit-test and Playwright jobs succeed (or, if a spec is intentionally broken, that the workflow fails clearly with a downloadable Playwright report artifact).
 
 ## Documentation
 

@@ -12,7 +12,7 @@ namespace AIRecruiter.UnitTests.Services;
 
 public class AdminServiceTests
 {
-    private static AdminService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateNotifications(db));
+    private static AdminService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateNotifications(db), TestServiceFactory.CreateRefreshTokens(db));
 
     private static async Task<(User Admin, User Recruiter, User Candidate)> SeedAsync(AppDbContext db)
     {

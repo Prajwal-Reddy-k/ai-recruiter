@@ -8,6 +8,7 @@ export interface AuthResponse {
   token: string;
   expiresAt: string;
   avatarUrl: string | null;
+  refreshToken: string;
 }
 
 export interface IndianState {
@@ -358,9 +359,11 @@ export interface ApplicationStatusSummary {
   rejected: number;
 }
 
-export interface DemoJobsSection {
-  items: JobPosting[];
-  isSampleData: boolean;
+export interface PagedResult<T> {
+  items: T[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface UpcomingInterview {
@@ -385,7 +388,7 @@ export interface CandidateDashboard {
   recentApplications: JobApplication[];
   recommendedJobs: JobPosting[];
   skillSuggestions: string[];
-  recentlyViewedJobs: DemoJobsSection;
+  recentlyViewedJobs: JobPosting[];
   savedJobs: JobPosting[];
   activeAlertCount: number;
   alertMatches: JobPosting[];

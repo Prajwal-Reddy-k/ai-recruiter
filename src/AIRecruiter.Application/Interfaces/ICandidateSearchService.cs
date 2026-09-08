@@ -1,4 +1,5 @@
 using AIRecruiter.Application.DTOs.Candidates;
+using AIRecruiter.Application.DTOs.Common;
 
 namespace AIRecruiter.Application.Interfaces;
 
@@ -6,8 +7,10 @@ public interface ICandidateSearchService
 {
     /// <summary>Scoped to every job posting owned by the caller's own company (derived
     /// server-side from the caller's RecruiterProfile — never trusts a client-supplied
-    /// company id), one row per application.</summary>
-    Task<IReadOnlyList<CandidateSearchResultDto>> SearchAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default);
+    /// company id), one row per application. Paged per query.Page/query.PageSize — the
+    /// underlying skills filter and sort are applied in-memory (see LoadFilteredApplicationsAsync)
+    /// so paging happens after that, not via SQL Skip/Take.</summary>
+    Task<PagedResult<CandidateSearchResultDto>> SearchAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default);
 
     Task<CandidateSearchDetailDto> GetDetailAsync(int recruiterUserId, int candidateProfileId, CancellationToken ct = default);
 

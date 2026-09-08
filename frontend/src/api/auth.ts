@@ -64,3 +64,18 @@ export async function resetPassword(resetToken: string, newPassword: string, con
   });
   return data;
 }
+
+export interface RefreshTokenResponse {
+  token: string;
+  expiresAt: string;
+  refreshToken: string;
+}
+
+export async function refreshToken(refreshTokenValue: string): Promise<RefreshTokenResponse> {
+  const { data } = await apiClient.post<RefreshTokenResponse>("/auth/refresh", { refreshToken: refreshTokenValue });
+  return data;
+}
+
+export async function logoutRequest(refreshTokenValue: string): Promise<void> {
+  await apiClient.post("/auth/logout", { refreshToken: refreshTokenValue });
+}

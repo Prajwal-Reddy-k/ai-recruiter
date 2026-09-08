@@ -17,6 +17,27 @@ public static class DataSeeder
     private const string DemoPassword = "Demo@123";
     private const string EmailDomain = "@demo.airecruiter.dev";
 
+    /// <summary>Test-only: drops and recreates the schema, then reseeds from scratch — gives
+    /// E2E specs a known, deterministic starting state between runs. Only ever invoked via
+    /// TestController's reset-seed endpoint, which is itself gated to the "Testing" ASP.NET
+    /// Core environment and unreachable in Development/Production.</summary>
+    public static async Task ResetForTestingAsync(AppDbContext db, CancellationToken ct = default)
+    {
+        await db.Database.EnsureDeletedAsync(ct);
+        if (db.Database.IsRelational())
+        {
+            await db.Database.MigrateAsync(ct);
+        }
+        else
+        {
+            // The InMemory provider (used only when a real SQL Server isn't available, e.g. a
+            // sandboxed dev environment) has no migration history — EnsureCreated builds the
+            // schema from the current model directly instead.
+            await db.Database.EnsureCreatedAsync(ct);
+        }
+        await SeedAsync(db, ct);
+    }
+
     public static async Task SeedAsync(AppDbContext db, CancellationToken ct = default)
     {
         var alreadySeeded = await db.Users.AnyAsync(u => u.Email == $"recruiter1{EmailDomain}", ct);

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import type { AuthResponse, UserRole } from "../types";
+import { logoutRequest } from "../api/auth";
 
 interface AuthUser {
   userId: number;
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       avatarUrl: auth.avatarUrl ?? null,
     };
     localStorage.setItem("token", auth.token);
+    localStorage.setItem("refreshToken", auth.refreshToken);
     localStorage.setItem("user", JSON.stringify(authUser));
     setUser(authUser);
   }
@@ -65,7 +67,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    const storedRefreshToken = localStorage.getItem("refreshToken");
+    if (storedRefreshToken) {
+      // Best-effort — the client-side session is cleared regardless of whether this succeeds.
+      logoutRequest(storedRefreshToken).catch(() => {});
+    }
     localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
     localStorage.removeItem("user");
     setUser(null);
   }

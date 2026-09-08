@@ -45,6 +45,9 @@ export default function CandidateSearchPage() {
   const toast = useToast();
   const [view, setView] = useState<ViewMode>("applicants");
   const [results, setResults] = useState<CandidateSearchResult[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
@@ -73,17 +76,22 @@ export default function CandidateSearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function runSearch() {
+  async function runSearch(targetPage = 1) {
     setLoading(true);
     setError(null);
     try {
-      setResults(await searchCandidates(filters));
+      const result = await searchCandidates({ ...filters, page: targetPage, pageSize });
+      setResults(result.items);
+      setTotalCount(result.totalCount);
+      setPage(result.page);
     } catch (err) {
       setError(getErrorMessage(err, "Failed to search candidates"));
     } finally {
       setLoading(false);
     }
   }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
 
   async function handleExport() {
     setExporting(true);
@@ -321,8 +329,8 @@ export default function CandidateSearchPage() {
           </select>
         </div>
         <div className="form-actions">
-          <Button icon={<Search size={16} />} onClick={runSearch} loading={loading}>Search</Button>
-          <Button variant="secondary" icon={<Download size={16} />} onClick={handleExport} loading={exporting} disabled={results.length === 0}>
+          <Button icon={<Search size={16} />} onClick={() => runSearch(1)} loading={loading}>Search</Button>
+          <Button variant="secondary" icon={<Download size={16} />} onClick={handleExport} loading={exporting} disabled={totalCount === 0}>
             Export CSV
           </Button>
         </div>
@@ -335,6 +343,7 @@ export default function CandidateSearchPage() {
       ) : results.length === 0 ? (
         <EmptyState icon={<Users size={32} />} title="No candidates match these filters" description="Try widening your search criteria." />
       ) : (
+        <>
         <div className="table-scroll">
           <table className="dashboard-table">
             <thead>
@@ -368,6 +377,16 @@ export default function CandidateSearchPage() {
             </tbody>
           </table>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "1rem" }}>
+          <Button size="sm" variant="secondary" disabled={page <= 1 || loading} onClick={() => runSearch(page - 1)}>
+            Previous
+          </Button>
+          <span className="hint">Page {page} of {totalPages} · {totalCount} candidate{totalCount === 1 ? "" : "s"}</span>
+          <Button size="sm" variant="secondary" disabled={page >= totalPages || loading} onClick={() => runSearch(page + 1)}>
+            Next
+          </Button>
+        </div>
+        </>
       )}
       </>
       )}

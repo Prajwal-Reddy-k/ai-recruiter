@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, SlidersHorizontal, X } from "lucide-react";
-import { getOpenJobs } from "../api/jobs";
+import { getOpenJobsPage } from "../api/jobs";
 import { getSavedJobs } from "../api/savedJobs";
 import type { JobPosting } from "../types";
 import { useAuth } from "../context/AuthContext";
@@ -46,13 +46,15 @@ export default function JobsPage() {
   const toast = useToast();
   const [searchParams] = useSearchParams();
   const [allJobs, setAllJobs] = useState<JobPosting[]>([]);
+  const [serverPage, setServerPage] = useState(0);
+  const [serverTotalCount, setServerTotalCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [savedIds, setSavedIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [titleQuery, setTitleQuery] = useState(() => searchParams.get("q") ?? "");
   const [locationQuery, setLocationQuery] = useState(() => searchParams.get("location") ?? "");
   const [filters, setFilters] = useState<JobFilters>(DEFAULT_FILTERS);
   const [sortKey, setSortKey] = useState<SortKey>("newest");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [compareIds, setCompareIds] = useState<Set<number>>(new Set());
@@ -82,10 +84,31 @@ export default function JobsPage() {
   async function loadJobs() {
     setLoading(true);
     try {
-      const data = await getOpenJobs();
-      setAllJobs(data);
+      const result = await getOpenJobsPage(undefined, 1, PAGE_SIZE);
+      setAllJobs(result.items);
+      setServerPage(result.page);
+      setServerTotalCount(result.totalCount);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadNextPage() {
+    setLoadingMore(true);
+    try {
+      const nextPage = serverPage + 1;
+      const result = await getOpenJobsPage(undefined, nextPage, PAGE_SIZE);
+      // Compare selections and any already-loaded jobs must survive across pages, so pages
+      // accumulate here rather than replace — a job selected on page 1 remains selectable
+      // and comparable after page 2 loads.
+      setAllJobs((prev) => {
+        const seen = new Set(prev.map((j) => j.id));
+        return [...prev, ...result.items.filter((j) => !seen.has(j.id))];
+      });
+      setServerPage(result.page);
+      setServerTotalCount(result.totalCount);
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -112,10 +135,9 @@ export default function JobsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allJobs, titleQuery, filters, locationQuery, sortKey]);
 
-  const visibleJobs = filteredJobs.slice(0, visibleCount);
+  const hasMoreOnServer = allJobs.length < serverTotalCount;
 
   function toggleExperience(bucket: ExperienceBucket) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({
       ...prev,
       experience: prev.experience.includes(bucket)
@@ -125,7 +147,6 @@ export default function JobsPage() {
   }
 
   function toggleSkill(skill: string) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({
       ...prev,
       skills: prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
@@ -133,7 +154,6 @@ export default function JobsPage() {
   }
 
   function toggleJobType(jobType: string) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({
       ...prev,
       jobTypes: prev.jobTypes.includes(jobType) ? prev.jobTypes.filter((t) => t !== jobType) : [...prev.jobTypes, jobType],
@@ -141,29 +161,24 @@ export default function JobsPage() {
   }
 
   function setStateFilter(state: string) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({ ...prev, state, city: "" }));
   }
 
   function setCityFilter(city: string) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({ ...prev, city }));
   }
 
   function setWorkMode(mode: WorkMode) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({ ...prev, workMode: mode }));
   }
 
   function setDatePosted(value: DatePostedFilter) {
-    setVisibleCount(PAGE_SIZE);
     setFilters((prev) => ({ ...prev, datePosted: value }));
   }
 
   function clearFilters() {
     setFilters(DEFAULT_FILTERS);
     setLocationQuery("");
-    setVisibleCount(PAGE_SIZE);
   }
 
   function toggleCompare(jobId: number) {
@@ -411,7 +426,7 @@ export default function JobsPage() {
           ) : (
             <>
               <ul className="job-list">
-                {visibleJobs.map((job) => (
+                {filteredJobs.map((job) => (
                   <li key={job.id}>
                     <JobCard
                       job={job}
@@ -422,9 +437,9 @@ export default function JobsPage() {
                   </li>
                 ))}
               </ul>
-              {visibleCount < filteredJobs.length && (
+              {hasMoreOnServer && (
                 <div className="load-more-wrap">
-                  <Button variant="secondary" onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}>
+                  <Button variant="secondary" onClick={loadNextPage} loading={loadingMore}>
                     Load more roles
                   </Button>
                 </div>

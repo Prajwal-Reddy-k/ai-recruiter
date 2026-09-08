@@ -17,13 +17,16 @@ import EmptyState from "../components/ui/EmptyState";
 import Avatar from "../components/ui/Avatar";
 import { resolveAvatarUrl } from "../utils/format";
 
-function JobRow({ job }: { job: JobPosting }) {
+function JobRow({ job, showStatus }: { job: JobPosting; showStatus?: boolean }) {
   return (
     <li className="job-card job-card-compact">
       <Link to={`/jobs/${job.id}`}>
         <h4>{job.title}</h4>
       </Link>
-      <p>{job.companyName} · {job.displayLocation}</p>
+      <p>
+        {job.companyName} · {job.displayLocation}
+        {showStatus && job.status !== "Open" && <span className="sample-data-badge">No longer open</span>}
+      </p>
     </li>
   );
 }
@@ -283,13 +286,12 @@ export default function CandidateDashboardPage() {
         <Card>
           <h2>
             <Eye size={18} /> Recently viewed
-            {dashboard.recentlyViewedJobs.isSampleData && <span className="sample-data-badge">Sample data</span>}
           </h2>
-          {dashboard.recentlyViewedJobs.items.length === 0 ? (
-            <p className="hint">Nothing to show yet.</p>
+          {dashboard.recentlyViewedJobs.length === 0 ? (
+            <p className="hint">Nothing to show yet — jobs you view will appear here.</p>
           ) : (
             <ul className="job-list-compact">
-              {dashboard.recentlyViewedJobs.items.map((job) => <JobRow key={job.id} job={job} />)}
+              {dashboard.recentlyViewedJobs.map((job) => <JobRow key={job.id} job={job} showStatus />)}
             </ul>
           )}
         </Card>

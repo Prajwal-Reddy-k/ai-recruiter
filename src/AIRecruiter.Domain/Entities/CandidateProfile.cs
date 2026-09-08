@@ -78,4 +78,5 @@ public class CandidateProfile : BaseEntity
     public ICollection<CareerGoal> CareerGoals { get; set; } = new List<CareerGoal>();
     public ICollection<CompanyFollow> FollowedCompanies { get; set; } = new List<CompanyFollow>();
     public ICollection<CompanyReview> CompanyReviews { get; set; } = new List<CompanyReview>();
+    public ICollection<JobView> JobViews { get; set; } = new List<JobView>();
 }

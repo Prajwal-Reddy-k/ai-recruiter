@@ -15,11 +15,13 @@ public class UserProfileService : IUserProfileService
 
     private readonly AppDbContext _db;
     private readonly IAuditLogService _auditLog;
+    private readonly IRefreshTokenService _refreshTokens;
 
-    public UserProfileService(AppDbContext db, IAuditLogService auditLog)
+    public UserProfileService(AppDbContext db, IAuditLogService auditLog, IRefreshTokenService refreshTokens)
     {
         _db = db;
         _auditLog = auditLog;
+        _refreshTokens = refreshTokens;
     }
 
     public async Task<UserDetailsDto> GetMyDetailsAsync(int userId, CancellationToken ct = default)
@@ -100,6 +102,7 @@ public class UserProfileService : IUserProfileService
         // mechanism as AuthService.ResetPasswordAsync — so other active sessions are signed out.
         user.SecurityStamp = Guid.NewGuid().ToString("N");
         await _db.SaveChangesAsync(ct);
+        await _refreshTokens.RevokeAllForUserAsync(userId, ct);
 
         await _auditLog.LogAsync(userId, user.Role.ToString(), "PasswordChanged", "User", user.Id, null, ct);
     }

@@ -1,7 +1,7 @@
 import apiClient from "./client";
 import { applicationStatusToNumber, type ApplicationStatusValue } from "./applications";
 import { availabilityStatusToNumber, type AvailabilityStatusValue } from "./candidates";
-import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption, DiscoverableCandidate } from "../types";
+import type { CandidateSearchDetail, CandidateSearchResult, CandidateSortOption, DiscoverableCandidate, PagedResult } from "../types";
 
 export interface CandidateSearchFilters {
   skills?: string;
@@ -14,6 +14,8 @@ export interface CandidateSearchFilters {
   minMatchScore?: number;
   maxMatchScore?: number;
   sort?: CandidateSortOption;
+  page?: number;
+  pageSize?: number;
 }
 
 const SORT_TO_NUMBER: Record<CandidateSortOption, number> = {
@@ -38,8 +40,10 @@ function toParams(filters: CandidateSearchFilters) {
   };
 }
 
-export async function searchCandidates(filters: CandidateSearchFilters): Promise<CandidateSearchResult[]> {
-  const { data } = await apiClient.get<CandidateSearchResult[]>("/recruiters/candidates", { params: toParams(filters) });
+export async function searchCandidates(filters: CandidateSearchFilters): Promise<PagedResult<CandidateSearchResult>> {
+  const { data } = await apiClient.get<PagedResult<CandidateSearchResult>>("/recruiters/candidates", {
+    params: { ...toParams(filters), page: filters.page, pageSize: filters.pageSize },
+  });
   return data;
 }
 

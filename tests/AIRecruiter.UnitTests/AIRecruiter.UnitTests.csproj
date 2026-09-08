@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.11" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Moq" Version="4.20.72" />
@@ -21,6 +22,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\AIRecruiter.API\AIRecruiter.API.csproj" />
     <ProjectReference Include="..\..\src\AIRecruiter.Application\AIRecruiter.Application.csproj" />
     <ProjectReference Include="..\..\src\AIRecruiter.Infrastructure\AIRecruiter.Infrastructure.csproj" />
   </ItemGroup>

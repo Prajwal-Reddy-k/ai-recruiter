@@ -21,10 +21,12 @@ public class DashboardService : IDashboardService
     private readonly IInterviewService _interviewService;
     private readonly IJobAlertService _jobAlertService;
     private readonly ICareerGoalService _careerGoalService;
+    private readonly IJobViewService _jobViewService;
 
     public DashboardService(
         AppDbContext db, IRecruiterOnboardingService onboardingService, ISavedJobService savedJobService,
-        IInterviewService interviewService, IJobAlertService jobAlertService, ICareerGoalService careerGoalService)
+        IInterviewService interviewService, IJobAlertService jobAlertService, ICareerGoalService careerGoalService,
+        IJobViewService jobViewService)
     {
         _db = db;
         _onboardingService = onboardingService;
@@ -32,6 +34,7 @@ public class DashboardService : IDashboardService
         _interviewService = interviewService;
         _jobAlertService = jobAlertService;
         _careerGoalService = careerGoalService;
+        _jobViewService = jobViewService;
     }
 
     public async Task<CandidateDashboardDto> GetCandidateDashboardAsync(int userId, CancellationToken ct = default)
@@ -91,11 +94,7 @@ public class DashboardService : IDashboardService
             .Take(5)
             .ToList();
 
-        // "Recently viewed" has no tracking concept in the domain — present a couple of open
-        // jobs so the section isn't empty, clearly flagged as sample data. Saved jobs are real.
-        var recommendedIds = recommended.Select(j => j.Id).ToHashSet();
-        var remaining = openJobs.Where(j => !recommendedIds.Contains(j.Id)).ToList();
-        var recentlyViewed = remaining.Count > 0 ? remaining.Take(2).ToList() : openJobs.Take(2).ToList();
+        var recentlyViewed = await _jobViewService.GetRecentlyViewedAsync(userId, ct);
 
         var savedJobs = await _savedJobService.GetMySavedJobsAsync(userId, ct);
         var alertCount = await _db.JobAlerts.CountAsync(a => a.CandidateProfile.UserId == userId, ct);
@@ -123,7 +122,7 @@ public class DashboardService : IDashboardService
             recentApplications,
             recommended.Select(j => JobPostingMapper.ToDto(j)).ToList(),
             missingSkills,
-            new DemoJobsSectionDto(recentlyViewed.Select(j => JobPostingMapper.ToDto(j)).ToList(), true),
+            recentlyViewed,
             savedJobs,
             alertCount,
             alertMatches,

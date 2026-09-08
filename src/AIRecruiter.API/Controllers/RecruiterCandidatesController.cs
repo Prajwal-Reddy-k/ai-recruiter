@@ -1,10 +1,12 @@
 using System.Text;
 using AIRecruiter.API.Extensions;
 using AIRecruiter.Application.DTOs.Candidates;
+using AIRecruiter.Application.DTOs.Common;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIRecruiter.API.Controllers;
 
@@ -21,7 +23,7 @@ public class RecruiterCandidatesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<CandidateSearchResultDto>>> Search(
+    public async Task<ActionResult<PagedResult<CandidateSearchResultDto>>> Search(
         [FromQuery] string? skills,
         [FromQuery] string? city,
         [FromQuery] string? state,
@@ -32,9 +34,11 @@ public class RecruiterCandidatesController : ControllerBase
         [FromQuery] int? minMatchScore,
         [FromQuery] int? maxMatchScore,
         [FromQuery] CandidateSortOption sort = CandidateSortOption.NewestApplication,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
         CancellationToken ct = default)
     {
-        var query = new CandidateSearchQuery(skills, city, state, minExperienceYears, maxExperienceYears, education, status, minMatchScore, maxMatchScore, sort);
+        var query = new CandidateSearchQuery(skills, city, state, minExperienceYears, maxExperienceYears, education, status, minMatchScore, maxMatchScore, sort, page, pageSize);
         var results = await _candidateSearch.SearchAsync(User.GetUserId(), query, ct);
         return Ok(results);
     }
@@ -61,6 +65,7 @@ public class RecruiterCandidatesController : ControllerBase
     }
 
     [HttpGet("export")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> Export(
         [FromQuery] string? skills,
         [FromQuery] string? city,

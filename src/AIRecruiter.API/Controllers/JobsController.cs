@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using AIRecruiter.API.Extensions;
 using AIRecruiter.Application.DTOs.Admin;
+using AIRecruiter.Application.DTOs.Common;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Domain.Enums;
@@ -16,17 +17,20 @@ public class JobsController : ControllerBase
 {
     private readonly IJobPostingService _jobPostingService;
     private readonly IModerationService _moderation;
+    private readonly IJobViewService _jobViewService;
 
-    public JobsController(IJobPostingService jobPostingService, IModerationService moderation)
+    public JobsController(IJobPostingService jobPostingService, IModerationService moderation, IJobViewService jobViewService)
     {
         _jobPostingService = jobPostingService;
         _moderation = moderation;
+        _jobViewService = jobViewService;
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<JobPostingDto>>> GetOpenJobs([FromQuery] string? search, CancellationToken ct)
+    public async Task<ActionResult<PagedResult<JobPostingDto>>> GetOpenJobs(
+        [FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken ct = default)
     {
-        var jobs = await _jobPostingService.GetOpenJobsAsync(search, ct);
+        var jobs = await _jobPostingService.GetOpenJobsAsync(search, page, pageSize, ct);
         return Ok(jobs);
     }
 
@@ -55,6 +59,14 @@ public class JobsController : ControllerBase
         int? viewerUserId = User.Identity?.IsAuthenticated == true ? User.GetUserId() : null;
         var visitorKey = viewerUserId.HasValue ? $"u:{viewerUserId}" : HashAnonymousVisitor();
         await _jobPostingService.RecordShareAsync(id, visitorKey, ct);
+        return NoContent();
+    }
+
+    [Authorize(Roles = "Candidate")]
+    [HttpPost("{id:int}/view")]
+    public async Task<IActionResult> RecordView(int id, CancellationToken ct)
+    {
+        await _jobViewService.RecordViewAsync(User.GetUserId(), id, ct);
         return NoContent();
     }
 

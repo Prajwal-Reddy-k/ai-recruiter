@@ -26,4 +26,5 @@ public class User : BaseEntity
     public CandidateProfile? CandidateProfile { get; set; }
     public RecruiterProfile? RecruiterProfile { get; set; }
     public ICollection<PasswordResetCode> PasswordResetCodes { get; set; } = new List<PasswordResetCode>();
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }

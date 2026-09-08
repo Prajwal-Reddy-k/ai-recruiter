@@ -1,11 +1,14 @@
 using AIRecruiter.Application.DTOs.Auth;
 using AIRecruiter.Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIRecruiter.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[EnableRateLimiting("auth")]
 public class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
@@ -18,15 +21,30 @@ public class AuthController : ControllerBase
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponse>> Register(RegisterRequest request, CancellationToken ct)
     {
-        var result = await _authService.RegisterAsync(request, ct);
+        var result = await _authService.RegisterAsync(request, GetClientIp(), ct);
         return Ok(result);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request, CancellationToken ct)
     {
-        var result = await _authService.LoginAsync(request, ct);
+        var result = await _authService.LoginAsync(request, GetClientIp(), ct);
         return Ok(result);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<ActionResult<RefreshTokenResponse>> Refresh(RefreshTokenRequest request, CancellationToken ct)
+    {
+        var result = await _authService.RefreshAsync(request, GetClientIp(), ct);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(RefreshTokenRequest request, CancellationToken ct)
+    {
+        await _authService.LogoutAsync(request, ct);
+        return NoContent();
     }
 
     [HttpPost("forgot-password")]

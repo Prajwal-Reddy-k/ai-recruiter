@@ -85,8 +85,9 @@ public class CandidateSearchServiceTests
 
         var results = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery());
 
-        Assert.Single(results);
-        Assert.Equal(candidate.Id, results[0].CandidateProfileId);
+        Assert.Single(results.Items);
+        Assert.Equal(1, results.TotalCount);
+        Assert.Equal(candidate.Id, results.Items[0].CandidateProfileId);
     }
 
     [Fact]
@@ -98,7 +99,7 @@ public class CandidateSearchServiceTests
 
         var results = await sut.SearchAsync(recruiterB.Id, new CandidateSearchQuery());
 
-        Assert.Empty(results);
+        Assert.Empty(results.Items);
     }
 
     [Fact]
@@ -172,8 +173,8 @@ public class CandidateSearchServiceTests
         var matching = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(City: "Bengaluru"));
         var nonMatching = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(City: "Mumbai"));
 
-        Assert.Single(matching);
-        Assert.Empty(nonMatching);
+        Assert.Single(matching.Items);
+        Assert.Empty(nonMatching.Items);
     }
 
     [Fact]
@@ -186,8 +187,93 @@ public class CandidateSearchServiceTests
         var matching = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(Skills: "SQL Server"));
         var nonMatching = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(Skills: "Python"));
 
-        Assert.Single(matching);
-        Assert.Empty(nonMatching);
+        Assert.Single(matching.Items);
+        Assert.Empty(nonMatching.Items);
+    }
+
+    private static async Task SeedAdditionalApplicationsAsync(AppDbContext db, RecruiterProfile recruiterAProfile, Company companyA, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var candidateUser = new User { FullName = $"Candidate {i}", Email = $"paged-candidate-{i}@example.com", Role = UserRole.Candidate };
+            db.Users.Add(candidateUser);
+            await db.SaveChangesAsync();
+            var profile = new CandidateProfile { UserId = candidateUser.Id, City = "Bengaluru" };
+            db.CandidateProfiles.Add(profile);
+            await db.SaveChangesAsync();
+            db.JobApplications.Add(new JobApplication
+            {
+                JobPostingId = db.JobPostings.First(j => j.CompanyId == companyA.Id).Id,
+                CandidateProfileId = profile.Id,
+                Status = ApplicationStatus.Applied,
+                CreatedAt = DateTime.UtcNow.AddMinutes(i),
+            });
+            await db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
+    public async Task SearchAsync_Pagination_ReturnsCorrectItemsAndTotalCountAcrossPages()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+        var companyA = db.Companies.First(c => c.Name == "Company A");
+        var recruiterAProfile = db.RecruiterProfiles.First(r => r.UserId == recruiterA.Id);
+        await SeedAdditionalApplicationsAsync(db, recruiterAProfile, companyA, 9); // + the 1 from SeedAsync = 10 total
+        var sut = CreateSut(db);
+
+        var page1 = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(Page: 1, PageSize: 4));
+        var page2 = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(Page: 2, PageSize: 4));
+        var page3 = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(Page: 3, PageSize: 4));
+
+        Assert.Equal(10, page1.TotalCount);
+        Assert.Equal(4, page1.Items.Count);
+        Assert.Equal(4, page2.Items.Count);
+        Assert.Equal(2, page3.Items.Count);
+        // No overlap between pages.
+        var allIds = page1.Items.Concat(page2.Items).Concat(page3.Items).Select(r => r.ApplicationId).ToList();
+        Assert.Equal(10, allIds.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task SearchAsync_PageSizeOverMax_IsClampedToMax()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+        var sut = CreateSut(db);
+
+        var result = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery(PageSize: 500));
+
+        Assert.Equal(50, result.PageSize);
+    }
+
+    [Fact]
+    public async Task SearchAsync_DefaultPaging_UsesDefaultPageSize()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+        var sut = CreateSut(db);
+
+        var result = await sut.SearchAsync(recruiterA.Id, new CandidateSearchQuery());
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(20, result.PageSize);
+    }
+
+    [Fact]
+    public async Task ExportCsvAsync_IgnoresPagingAndExportsFullFilteredSet()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiterA, _, _, _) = await SeedAsync(db);
+        var companyA = db.Companies.First(c => c.Name == "Company A");
+        var recruiterAProfile = db.RecruiterProfiles.First(r => r.UserId == recruiterA.Id);
+        await SeedAdditionalApplicationsAsync(db, recruiterAProfile, companyA, 9);
+        var sut = CreateSut(db);
+
+        var csv = await sut.ExportCsvAsync(recruiterA.Id, new CandidateSearchQuery(Page: 1, PageSize: 4));
+        var dataLines = csv.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Skip(1).ToList();
+
+        Assert.Equal(10, dataLines.Count);
     }
 
     [Fact]

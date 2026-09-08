@@ -1,3 +1,4 @@
+using AIRecruiter.Application.DTOs.Common;
 using AIRecruiter.Application.DTOs.Jobs;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
@@ -39,8 +40,11 @@ public class JobPostingService : IJobPostingService
         _salaryInsights = salaryInsights;
     }
 
-    public async Task<IReadOnlyList<JobPostingDto>> GetOpenJobsAsync(string? search, CancellationToken ct = default)
+    public async Task<PagedResult<JobPostingDto>> GetOpenJobsAsync(string? search, int page = 1, int pageSize = 20, CancellationToken ct = default)
     {
+        page = PagingDefaults.ClampPage(page);
+        pageSize = PagingDefaults.ClampPageSize(pageSize);
+
         var query = _db.JobPostings
             .Include(j => j.Company)
             .Include(j => j.ScreeningQuestions).ThenInclude(q => q.Options)
@@ -56,12 +60,16 @@ public class JobPostingService : IJobPostingService
                 (j.State != null && j.State.Contains(search)));
         }
 
+        query = query.OrderByDescending(j => j.CreatedAt);
+
+        var totalCount = await query.CountAsync(ct);
         var jobs = await query
-            .OrderByDescending(j => j.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(j => ToDto(j))
             .ToListAsync(ct);
 
-        return jobs;
+        return new PagedResult<JobPostingDto>(jobs, totalCount, page, pageSize);
     }
 
     public async Task<JobPostingDto?> GetByIdAsync(int id, string? viewerKey, int? viewerUserId, bool isAdminViewer = false, CancellationToken ct = default)

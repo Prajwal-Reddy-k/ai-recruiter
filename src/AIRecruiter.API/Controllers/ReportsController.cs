@@ -4,6 +4,7 @@ using AIRecruiter.Application.DTOs.Reports;
 using AIRecruiter.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIRecruiter.API.Controllers;
 
@@ -26,6 +27,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("export/jobs")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> ExportJobs([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct)
     {
         var csv = await _reports.ExportJobsCsvAsync(User.GetUserId(), new ReportFilterRequest(fromUtc, toUtc), ct);
@@ -33,6 +35,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("export/applicants")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> ExportApplicants([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct)
     {
         var csv = await _reports.ExportApplicantsCsvAsync(User.GetUserId(), new ReportFilterRequest(fromUtc, toUtc), ct);
@@ -40,6 +43,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("export/interviews")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> ExportInterviews([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct)
     {
         var csv = await _reports.ExportInterviewScheduleCsvAsync(User.GetUserId(), new ReportFilterRequest(fromUtc, toUtc), ct);
@@ -47,6 +51,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("export/funnel")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> ExportFunnel([FromQuery] DateTime? fromUtc, [FromQuery] DateTime? toUtc, CancellationToken ct)
     {
         var csv = await _reports.ExportFunnelSummaryCsvAsync(User.GetUserId(), new ReportFilterRequest(fromUtc, toUtc), ct);

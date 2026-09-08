@@ -9,11 +9,6 @@ namespace AIRecruiter.Application.DTOs.Dashboard;
 
 public record ApplicationStatusSummaryDto(int Applied, int UnderReview, int Shortlisted, int Rejected);
 
-/// <summary>Wraps a list with an explicit flag so the UI can label sections that have no
-/// real backing feature yet (recently-viewed jobs — there is no view-tracking in the
-/// domain) as sample data rather than presenting it as real.</summary>
-public record DemoJobsSectionDto(IReadOnlyList<JobPostingDto> Items, bool IsSampleData);
-
 public record NextBestActionDto(string Label, string Description, string LinkPath);
 
 public record CandidateDashboardDto(
@@ -22,7 +17,7 @@ public record CandidateDashboardDto(
     IReadOnlyList<JobApplicationDto> RecentApplications,
     IReadOnlyList<JobPostingDto> RecommendedJobs,
     IReadOnlyList<string> SkillSuggestions,
-    DemoJobsSectionDto RecentlyViewedJobs,
+    IReadOnlyList<JobPostingDto> RecentlyViewedJobs,
     IReadOnlyList<JobPostingDto> SavedJobs,
     int ActiveAlertCount,
     IReadOnlyList<JobPostingDto> AlertMatches,

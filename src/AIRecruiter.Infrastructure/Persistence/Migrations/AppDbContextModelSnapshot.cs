@@ -1369,6 +1369,39 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.ToTable("JobTemplates");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.JobView", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CandidateProfileId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("JobPostingId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ViewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobPostingId");
+
+                    b.HasIndex("CandidateProfileId", "JobPostingId")
+                        .IsUnique();
+
+                    b.ToTable("JobViews");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Message", b =>
                 {
                     b.Property<int>("Id")
@@ -1764,6 +1797,52 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Referrals");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedByIp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReplacedByTokenId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReplacedByTokenId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "RevokedAtUtc");
+
+                    b.ToTable("RefreshTokens");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Report", b =>
@@ -2601,6 +2680,25 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("RecruiterProfile");
                 });
 
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.JobView", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.CandidateProfile", "CandidateProfile")
+                        .WithMany("JobViews")
+                        .HasForeignKey("CandidateProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AIRecruiter.Domain.Entities.JobPosting", "JobPosting")
+                        .WithMany("JobViews")
+                        .HasForeignKey("JobPostingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CandidateProfile");
+
+                    b.Navigation("JobPosting");
+                });
+
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Message", b =>
                 {
                     b.HasOne("AIRecruiter.Domain.Entities.JobApplication", "JobApplication")
@@ -2741,6 +2839,22 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("ReferrerUser");
 
                     b.Navigation("RegisteredUser");
+                });
+
+            modelBuilder.Entity("AIRecruiter.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("AIRecruiter.Domain.Entities.RefreshToken", null)
+                        .WithMany()
+                        .HasForeignKey("ReplacedByTokenId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AIRecruiter.Domain.Entities.User", "User")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AIRecruiter.Domain.Entities.Report", b =>
@@ -2923,6 +3037,8 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
 
                     b.Navigation("JobAlerts");
 
+                    b.Navigation("JobViews");
+
                     b.Navigation("Projects");
 
                     b.Navigation("ResumeEducations");
@@ -2980,6 +3096,8 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Invitations");
 
+                    b.Navigation("JobViews");
+
                     b.Navigation("Referrals");
 
                     b.Navigation("SavedByCandidates");
@@ -3030,6 +3148,8 @@ namespace AIRecruiter.Infrastructure.Persistence.Migrations
                     b.Navigation("PasswordResetCodes");
 
                     b.Navigation("RecruiterProfile");
+
+                    b.Navigation("RefreshTokens");
                 });
 #pragma warning restore 612, 618
         }

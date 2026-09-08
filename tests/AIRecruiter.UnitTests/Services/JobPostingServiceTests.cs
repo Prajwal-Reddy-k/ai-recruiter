@@ -633,4 +633,83 @@ public class JobPostingServiceTests
 
         Assert.Equal("Yes", dto!.ScreeningQuestions![0].PreferredAnswer);
     }
+
+    private static async Task SeedOpenJobsAsync(AppDbContext db, RecruiterProfile recruiterProfile, int companyId, int count)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            db.JobPostings.Add(new JobPosting
+            {
+                Title = $"Open Role {i}",
+                Description = "role",
+                Status = JobStatus.Open,
+                CompanyId = companyId,
+                RecruiterProfileId = recruiterProfile.Id,
+                CreatedAt = DateTime.UtcNow.AddMinutes(i),
+            });
+        }
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task GetOpenJobsAsync_Pagination_ReturnsCorrectItemsAndTotalCountAcrossPages()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job) = await SeedAsync(db);
+        var recruiterProfile = db.RecruiterProfiles.First(r => r.UserId == recruiter.Id);
+        await SeedOpenJobsAsync(db, recruiterProfile, job.CompanyId, 9); // + the 1 from SeedAsync = 10 total
+        var sut = CreateSut(db);
+
+        var page1 = await sut.GetOpenJobsAsync(search: null, page: 1, pageSize: 4);
+        var page2 = await sut.GetOpenJobsAsync(search: null, page: 2, pageSize: 4);
+        var page3 = await sut.GetOpenJobsAsync(search: null, page: 3, pageSize: 4);
+
+        Assert.Equal(10, page1.TotalCount);
+        Assert.Equal(4, page1.Items.Count);
+        Assert.Equal(4, page2.Items.Count);
+        Assert.Equal(2, page3.Items.Count);
+        var allIds = page1.Items.Concat(page2.Items).Concat(page3.Items).Select(j => j.Id).ToList();
+        Assert.Equal(10, allIds.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task GetOpenJobsAsync_DefaultPaging_UsesDefaultPageSize()
+    {
+        using var db = TestDbContextFactory.Create();
+        await SeedAsync(db);
+        var sut = CreateSut(db);
+
+        var result = await sut.GetOpenJobsAsync(search: null);
+
+        Assert.Equal(1, result.Page);
+        Assert.Equal(20, result.PageSize);
+    }
+
+    [Fact]
+    public async Task GetOpenJobsAsync_PageSizeOverMax_IsClampedToMax()
+    {
+        using var db = TestDbContextFactory.Create();
+        await SeedAsync(db);
+        var sut = CreateSut(db);
+
+        var result = await sut.GetOpenJobsAsync(search: null, pageSize: 500);
+
+        Assert.Equal(50, result.PageSize);
+    }
+
+    [Fact]
+    public async Task GetOpenJobsAsync_PageAndSearchFilterCompose()
+    {
+        using var db = TestDbContextFactory.Create();
+        var (recruiter, job) = await SeedAsync(db); // "Backend Engineer"
+        var recruiterProfile = db.RecruiterProfiles.First(r => r.UserId == recruiter.Id);
+        db.JobPostings.Add(new JobPosting { Title = "Frontend Engineer", Description = "role", Status = JobStatus.Open, CompanyId = job.CompanyId, RecruiterProfileId = recruiterProfile.Id });
+        await db.SaveChangesAsync();
+        var sut = CreateSut(db);
+
+        var result = await sut.GetOpenJobsAsync(search: "Backend", page: 1, pageSize: 10);
+
+        Assert.Equal(1, result.TotalCount);
+        Assert.Equal("Backend Engineer", result.Items[0].Title);
+    }
 }

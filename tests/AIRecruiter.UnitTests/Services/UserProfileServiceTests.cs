@@ -10,7 +10,7 @@ namespace AIRecruiter.UnitTests.Services;
 
 public class UserProfileServiceTests
 {
-    private static UserProfileService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db));
+    private static UserProfileService CreateSut(AppDbContext db) => new(db, TestServiceFactory.CreateAuditLog(db), TestServiceFactory.CreateRefreshTokens(db));
 
     private static async Task<User> SeedAsync(AppDbContext db)
     {

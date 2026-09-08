@@ -1,10 +1,11 @@
+using AIRecruiter.Application.DTOs.Common;
 using AIRecruiter.Application.DTOs.Jobs;
 
 namespace AIRecruiter.Application.Interfaces;
 
 public interface IJobPostingService
 {
-    Task<IReadOnlyList<JobPostingDto>> GetOpenJobsAsync(string? search, CancellationToken ct = default);
+    Task<PagedResult<JobPostingDto>> GetOpenJobsAsync(string? search, int page = 1, int pageSize = 20, CancellationToken ct = default);
     Task<JobPostingDto?> GetByIdAsync(int id, string? viewerKey, int? viewerUserId, bool isAdminViewer = false, CancellationToken ct = default);
     Task<JobPostingDto> CreateAsync(int recruiterUserId, CreateJobPostingRequest request, CancellationToken ct = default);
     Task<JobPostingDto> UpdateAsync(int recruiterUserId, int jobId, UpdateJobPostingRequest request, CancellationToken ct = default);

@@ -50,6 +50,8 @@ public class AppDbContext : DbContext
     public DbSet<ScreeningQuestionOption> ScreeningQuestionOptions => Set<ScreeningQuestionOption>();
     public DbSet<ScreeningAnswer> ScreeningAnswers => Set<ScreeningAnswer>();
     public DbSet<ScreeningAnswerSelectedOption> ScreeningAnswerSelectedOptions => Set<ScreeningAnswerSelectedOption>();
+    public DbSet<JobView> JobViews => Set<JobView>();
+    public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -604,6 +606,51 @@ public class AppDbContext : DbContext
             .WithMany()
             .HasForeignKey(o => o.ScreeningQuestionOptionId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Recently-viewed jobs (real per-candidate history, distinct from the anonymous
+        // JobPosting.ViewCount aggregate) ---
+        modelBuilder.Entity<JobView>()
+            .HasOne(v => v.CandidateProfile)
+            .WithMany(c => c.JobViews)
+            .HasForeignKey(v => v.CandidateProfileId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<JobView>()
+            .HasOne(v => v.JobPosting)
+            .WithMany(j => j.JobViews)
+            .HasForeignKey(v => v.JobPostingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<JobView>()
+            .HasIndex(v => new { v.CandidateProfileId, v.JobPostingId })
+            .IsUnique();
+
+        // --- Refresh tokens (rotation chain; reuse-of-rotated-token triggers theft detection) ---
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne(t => t.User)
+            .WithMany(u => u.RefreshTokens)
+            .HasForeignKey(t => t.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasOne<RefreshToken>()
+            .WithMany()
+            .HasForeignKey(t => t.ReplacedByTokenId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasIndex(t => t.TokenHash)
+            .IsUnique();
+
+        modelBuilder.Entity<RefreshToken>()
+            .HasIndex(t => new { t.UserId, t.RevokedAtUtc });
+
+        // Concurrency token (not a rowversion column) — a race between two redemption attempts
+        // of the same token both read RevokedAtUtc as null; only the first save that sets it
+        // wins, the second hits DbUpdateConcurrencyException. See RefreshTokenService.RedeemAsync.
+        modelBuilder.Entity<RefreshToken>()
+            .Property(t => t.RevokedAtUtc)
+            .IsConcurrencyToken();
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {

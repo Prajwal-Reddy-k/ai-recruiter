@@ -17,12 +17,14 @@ public class AdminService : IAdminService
     private readonly AppDbContext _db;
     private readonly IAuditLogService _auditLog;
     private readonly INotificationService _notifications;
+    private readonly IRefreshTokenService _refreshTokens;
 
-    public AdminService(AppDbContext db, IAuditLogService auditLog, INotificationService notifications)
+    public AdminService(AppDbContext db, IAuditLogService auditLog, INotificationService notifications, IRefreshTokenService refreshTokens)
     {
         _db = db;
         _auditLog = auditLog;
         _notifications = notifications;
+        _refreshTokens = refreshTokens;
     }
 
     public async Task<IReadOnlyList<AdminUserDto>> GetUsersAsync(CancellationToken ct = default)
@@ -147,6 +149,7 @@ public class AdminService : IAdminService
         // on their very next request, not just on their next login attempt.
         user.SecurityStamp = Guid.NewGuid().ToString("N");
         await _db.SaveChangesAsync(ct);
+        await _refreshTokens.RevokeAllForUserAsync(user.Id, ct);
 
         await _auditLog.LogAsync(adminUserId, "Admin", "UserSuspended", "User", user.Id, new { user.Email }, ct);
     }

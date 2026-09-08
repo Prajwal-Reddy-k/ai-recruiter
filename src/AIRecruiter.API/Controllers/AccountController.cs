@@ -3,6 +3,7 @@ using AIRecruiter.Application.DTOs.Users;
 using AIRecruiter.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace AIRecruiter.API.Controllers;
 
@@ -63,12 +64,26 @@ public class AccountController : ControllerBase
         Ok(await _userProfile.GetPrivacySummaryAsync(User.GetUserId(), ct));
 
     [HttpGet("export")]
+    [EnableRateLimiting("export")]
     public async Task<IActionResult> Export([FromQuery] string format = "json", CancellationToken ct = default)
     {
         var userId = User.GetUserId();
         if (!_rateLimiter.IsAllowed($"AccountExport:{userId}", 3, TimeSpan.FromHours(1)))
         {
-            return StatusCode(429, new { message = "You've requested too many exports recently — please try again later." });
+            // Same application/problem+json shape as every other 429 in this app (see
+            // ExceptionHandlingMiddleware / the RATE_LIMITED policy in Program.cs), rather than
+            // an ad-hoc anonymous-object body — this business-rule limit is stricter and
+            // per-user, so it stays a manual IIpRateLimiter check rather than an
+            // [EnableRateLimiting] policy, but its response shape should still match.
+            Response.Headers.RetryAfter = TimeSpan.FromHours(1).TotalSeconds.ToString();
+            var problem = new ProblemDetails
+            {
+                Status = StatusCodes.Status429TooManyRequests,
+                Title = "RATE_LIMITED",
+                Detail = "You've requested too many exports recently — please try again later.",
+            };
+            problem.Extensions["errorCode"] = "RATE_LIMITED";
+            return StatusCode(StatusCodes.Status429TooManyRequests, problem);
         }
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))

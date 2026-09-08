@@ -9,6 +9,10 @@ frontend/node_modules/
 frontend/dist/
 frontend/.env.local
 
+# Playwright (local E2E run output — not source)
+frontend/playwright-report/
+frontend/test-results/
+
 # IDE
 .vs/
 .vscode/

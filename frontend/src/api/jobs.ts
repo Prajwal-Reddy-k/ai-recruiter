@@ -1,5 +1,5 @@
 import apiClient from "./client";
-import type { CreateJobPostingRequest, JobPosting, RecruiterJobSummary, UpdateJobPostingRequest } from "../types";
+import type { CreateJobPostingRequest, JobPosting, PagedResult, RecruiterJobSummary, UpdateJobPostingRequest } from "../types";
 import { type ReportReasonValue, reportReasonToNumber } from "./moderationReports";
 
 export type JobTypeValue = "FullTime" | "PartTime" | "Contract" | "Internship" | "Freelance";
@@ -12,11 +12,18 @@ export const jobTypeToNumber: Record<JobTypeValue, number> = {
   Freelance: 5,
 };
 
-export async function getOpenJobs(search?: string): Promise<JobPosting[]> {
-  const { data } = await apiClient.get<JobPosting[]>("/jobs", {
-    params: search ? { search } : undefined,
+export async function getOpenJobsPage(search?: string, page = 1, pageSize = 20): Promise<PagedResult<JobPosting>> {
+  const { data } = await apiClient.get<PagedResult<JobPosting>>("/jobs", {
+    params: { search: search || undefined, page, pageSize },
   });
   return data;
+}
+
+/** Convenience wrapper for callers that just want a flat list (landing page highlights,
+ * similar-jobs matching) rather than paging UI — fetches a single, larger page. */
+export async function getOpenJobs(search?: string, pageSize = 50): Promise<JobPosting[]> {
+  const result = await getOpenJobsPage(search, 1, pageSize);
+  return result.items;
 }
 
 export async function getJobById(id: number): Promise<JobPosting> {
@@ -82,4 +89,8 @@ export async function extendJobDeadline(jobId: number, applicationDeadlineUtc: s
 
 export async function recordJobShare(jobId: number): Promise<void> {
   await apiClient.post(`/jobs/${jobId}/share`);
+}
+
+export async function recordJobView(jobId: number): Promise<void> {
+  await apiClient.post(`/jobs/${jobId}/view`);
 }

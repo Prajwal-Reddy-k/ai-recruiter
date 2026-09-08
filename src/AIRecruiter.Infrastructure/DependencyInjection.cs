@@ -23,8 +23,23 @@ public static class DependencyInjection
     /// there too. Callers pass <c>builder.Environment.IsDevelopment()</c>.</summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool isDevelopment)
     {
+        // "UseInMemoryDatabase"/"InMemoryDatabaseName" are test-only configuration switches —
+        // never set outside a WebApplicationFactory-hosted test — that let integration tests
+        // (e.g. rate-limiter tests, which must run against the real ASP.NET Core pipeline) run
+        // without a real SQL Server instance. Production/Development always take the SqlServer
+        // branch, driven entirely by appsettings.
+        var useInMemoryDatabase = configuration.GetValue<bool>("UseInMemoryDatabase");
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+        {
+            if (useInMemoryDatabase)
+            {
+                options.UseInMemoryDatabase(configuration["InMemoryDatabaseName"] ?? Guid.NewGuid().ToString());
+            }
+            else
+            {
+                options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"));
+            }
+        });
 
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<ResumeStorageOptions>(configuration.GetSection(ResumeStorageOptions.SectionName));
@@ -33,10 +48,12 @@ public static class DependencyInjection
         services.Configure<AdzunaOptions>(configuration.GetSection(AdzunaOptions.SectionName));
         services.Configure<NominatimOptions>(configuration.GetSection(NominatimOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.Configure<RateLimitingOptions>(configuration.GetSection(RateLimitingOptions.SectionName));
 
         services.AddMemoryCache();
 
         services.AddScoped<ITokenService, TokenService>();
+        services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IJobPostingService, JobPostingService>();
         services.AddScoped<IRecruiterOnboardingService, RecruiterOnboardingService>();
@@ -81,6 +98,7 @@ public static class DependencyInjection
         services.AddScoped<ISalaryInsightsService, SalaryInsightsService>();
         services.AddScoped<ICompanyReviewService, CompanyReviewService>();
         services.AddScoped<IAccountDataExportService, AccountDataExportService>();
+        services.AddScoped<IJobViewService, JobViewService>();
         services.AddHostedService<JobLifecycleSweepService>();
 
         // Email: a real SMTP account (any provider) if fully configured; otherwise a

@@ -2,6 +2,7 @@ using System.Text;
 using AIRecruiter.Application.Common;
 using AIRecruiter.Application.DTOs.Assessments;
 using AIRecruiter.Application.DTOs.Candidates;
+using AIRecruiter.Application.DTOs.Common;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Domain.Entities;
@@ -28,21 +29,28 @@ public class CandidateSearchService : ICandidateSearchService
         _auditLog = auditLog;
     }
 
-    public async Task<IReadOnlyList<CandidateSearchResultDto>> SearchAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default)
+    public async Task<PagedResult<CandidateSearchResultDto>> SearchAsync(int recruiterUserId, CandidateSearchQuery query, CancellationToken ct = default)
     {
         var companyId = await GetCallerCompanyIdAsync(recruiterUserId, ct);
 
         var applications = await LoadFilteredApplicationsAsync(companyId, query, ct);
 
-        var ordered = query.Sort switch
+        var ordered = (query.Sort switch
         {
             CandidateSortOption.HighestMatchScore => applications.OrderByDescending(a => a.MatchScore ?? -1),
             CandidateSortOption.ExperienceDesc => applications.OrderByDescending(a => a.CandidateProfile.TotalExperienceYears ?? -1),
             CandidateSortOption.NameAlphabetical => applications.OrderBy(a => a.CandidateProfile.User.FullName, StringComparer.OrdinalIgnoreCase),
             _ => applications.OrderByDescending(a => a.CreatedAt),
-        };
+        }).ToList();
 
-        return ordered.Select(a => ToResultDto(a, recruiterUserId)).ToList();
+        // Skills filtering and sorting both already happened in-memory above (an "any of these
+        // is a substring" skills match isn't reliably translatable to SQL), so paging is
+        // applied here rather than via SQL Skip/Take.
+        var page = PagingDefaults.ClampPage(query.Page);
+        var pageSize = PagingDefaults.ClampPageSize(query.PageSize);
+        var pageItems = ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(a => ToResultDto(a, recruiterUserId)).ToList();
+
+        return new PagedResult<CandidateSearchResultDto>(pageItems, ordered.Count, page, pageSize);
     }
 
     public async Task<CandidateSearchDetailDto> GetDetailAsync(int recruiterUserId, int candidateProfileId, CancellationToken ct = default)

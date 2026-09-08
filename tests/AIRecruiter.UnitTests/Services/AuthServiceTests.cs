@@ -26,9 +26,10 @@ public class AuthServiceTests
         });
         var tokenService = new TokenService(jwtOptions);
         var emailSender = new RecordingEmailSender();
+        var refreshTokens = TestServiceFactory.CreateRefreshTokens(db);
         var sut = new AuthService(
             db, tokenService, TestServiceFactory.CreateAuditLog(db), emailSender,
-            new InMemoryIpRateLimiter(), NullLogger<AuthService>.Instance);
+            new InMemoryIpRateLimiter(), NullLogger<AuthService>.Instance, refreshTokens);
         return (sut, emailSender);
     }
 

@@ -17,7 +17,8 @@ public class DashboardServiceTests
         var interviews = new InterviewService(db, notifications, auditLog);
         var jobAlerts = TestServiceFactory.CreateJobAlerts(db);
         var careerGoals = new CareerGoalService(db, TestServiceFactory.CreateLocationValidator());
-        return new DashboardService(db, onboarding, savedJobs, interviews, jobAlerts, careerGoals);
+        var jobViews = new JobViewService(db);
+        return new DashboardService(db, onboarding, savedJobs, interviews, jobAlerts, careerGoals, jobViews);
     }
 
     [Fact]

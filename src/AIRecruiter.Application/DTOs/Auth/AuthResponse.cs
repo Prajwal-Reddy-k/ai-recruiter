@@ -7,4 +7,9 @@ public record AuthResponse(
     string Role,
     string Token,
     DateTime ExpiresAt,
-    string? AvatarUrl = null);
+    string? AvatarUrl = null,
+    string RefreshToken = "");
+
+public record RefreshTokenRequest(string RefreshToken);
+
+public record RefreshTokenResponse(string Token, DateTime ExpiresAt, string RefreshToken);

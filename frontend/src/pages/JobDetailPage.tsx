@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Bookmark, BookmarkCheck, Briefcase, Clock, Heart, MapPin, Wallet } from "lucide-react";
-import { getJobById, getOpenJobs, reportJob } from "../api/jobs";
+import { getJobById, getOpenJobs, recordJobView, reportJob } from "../api/jobs";
 import { REPORT_REASON_LABELS, type ReportReasonValue } from "../api/moderationReports";
 import { applyToJob } from "../api/applications";
 import { getSavedJobs, saveJob, unsaveJob } from "../api/savedJobs";
@@ -75,6 +75,7 @@ export default function JobDetailPage() {
     getSavedJobs()
       .then((entries) => setSaved(entries.some((e) => e.job.id === Number(id))))
       .catch(() => setSaved(false));
+    recordJobView(Number(id)).catch(() => {});
   }, [id, isAuthenticated, user]);
 
   useEffect(() => {

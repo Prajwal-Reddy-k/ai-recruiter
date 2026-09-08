@@ -21,7 +21,9 @@ public record CandidateSearchQuery(
     ApplicationStatus? Status = null,
     int? MinMatchScore = null,
     int? MaxMatchScore = null,
-    CandidateSortOption Sort = CandidateSortOption.NewestApplication);
+    CandidateSortOption Sort = CandidateSortOption.NewestApplication,
+    int Page = 1,
+    int PageSize = 20);
 
 public record CandidateSearchResultDto(
     int ApplicationId,

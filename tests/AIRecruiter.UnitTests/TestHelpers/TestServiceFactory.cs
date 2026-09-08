@@ -74,4 +74,14 @@ public static class TestServiceFactory
     public static CompanyReviewService CreateCompanyReviewService(AppDbContext db) => new(db, CreateAuditLog(db), new InMemoryIpRateLimiter());
 
     public static AccountDataExportService CreateAccountDataExportService(AppDbContext db) => new(db, CreateAuditLog(db));
+
+    public static TokenService CreateTokenService() => new(Options.Create(new JwtOptions
+    {
+        Secret = "unit-test-secret-key-at-least-32-characters-long",
+        Issuer = "AIRecruiter.Tests",
+        Audience = "AIRecruiter.Tests",
+        ExpiryMinutes = 60,
+    }));
+
+    public static RefreshTokenService CreateRefreshTokens(AppDbContext db) => new(db, CreateTokenService(), CreateAuditLog(db));
 }

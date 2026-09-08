@@ -28,6 +28,7 @@ public class AuthService : IAuthService
     private readonly IEmailSender _emailSender;
     private readonly IIpRateLimiter _rateLimiter;
     private readonly ILogger<AuthService> _logger;
+    private readonly IRefreshTokenService _refreshTokens;
 
     public AuthService(
         AppDbContext db,
@@ -35,7 +36,8 @@ public class AuthService : IAuthService
         IAuditLogService auditLog,
         IEmailSender emailSender,
         IIpRateLimiter rateLimiter,
-        ILogger<AuthService> logger)
+        ILogger<AuthService> logger,
+        IRefreshTokenService refreshTokens)
     {
         _db = db;
         _tokenService = tokenService;
@@ -43,9 +45,10 @@ public class AuthService : IAuthService
         _emailSender = emailSender;
         _rateLimiter = rateLimiter;
         _logger = logger;
+        _refreshTokens = refreshTokens;
     }
 
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, CancellationToken ct = default)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest request, string? ipAddress = null, CancellationToken ct = default)
     {
         if (request.Role == UserRole.Admin)
         {
@@ -103,10 +106,11 @@ public class AuthService : IAuthService
         await _auditLog.LogAsync(user.Id, user.Role.ToString(), "UserRegistered", "User", user.Id, new { user.Role }, ct);
 
         var (token, expiresAt) = _tokenService.GenerateToken(user);
-        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt);
+        var refreshToken = await _refreshTokens.IssueAsync(user, ipAddress, ct);
+        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt, null, refreshToken);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct = default)
+    public async Task<AuthResponse> LoginAsync(LoginRequest request, string? ipAddress = null, CancellationToken ct = default)
     {
         var normalizedEmail = NormalizeEmail(request.Email);
 
@@ -122,7 +126,9 @@ public class AuthService : IAuthService
 
         var (token, expiresAt) = _tokenService.GenerateToken(user);
         var avatarUrl = await GetAvatarUrlAsync(user, ct);
-        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt, avatarUrl);
+        var refreshToken = await _refreshTokens.IssueAsync(user, ipAddress, ct);
+        await _auditLog.LogAsync(user.Id, user.Role.ToString(), "LoginSucceeded", "User", user.Id, null, ct);
+        return new AuthResponse(user.Id, user.FullName, user.Email, user.Role.ToString(), token, expiresAt, avatarUrl, refreshToken);
     }
 
     private async Task<string?> GetAvatarUrlAsync(User user, CancellationToken ct)
@@ -299,10 +305,24 @@ public class AuthService : IAuthService
         codeRow.ResetTokenUsed = true;
 
         await _db.SaveChangesAsync(ct);
+        // Refresh tokens are a second, longer-lived credential — revoke them alongside the
+        // security stamp so a password reset actually ends every outstanding session.
+        await _refreshTokens.RevokeAllForUserAsync(user.Id, ct);
 
         await _auditLog.LogAsync(user.Id, user.Role.ToString(), "PasswordResetCompleted", "User", user.Id, null, ct);
 
         return new ResetPasswordResponse("Password updated successfully. Please sign in with your new password.");
+    }
+
+    public async Task<RefreshTokenResponse> RefreshAsync(RefreshTokenRequest request, string? ipAddress = null, CancellationToken ct = default)
+    {
+        var result = await _refreshTokens.RedeemAsync(request.RefreshToken, ipAddress, ct);
+        return result;
+    }
+
+    public async Task LogoutAsync(RefreshTokenRequest request, CancellationToken ct = default)
+    {
+        await _refreshTokens.RevokeAsync(request.RefreshToken, ct);
     }
 
     private static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
