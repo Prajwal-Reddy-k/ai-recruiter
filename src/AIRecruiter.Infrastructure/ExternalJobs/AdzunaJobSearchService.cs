@@ -4,7 +4,6 @@ using AIRecruiter.Application.DTOs.ExternalJobs;
 using AIRecruiter.Application.Exceptions;
 using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Infrastructure.Options;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -21,10 +20,10 @@ public class AdzunaJobSearchService : IExternalJobSearchService
 
     private readonly HttpClient _httpClient;
     private readonly AdzunaOptions _options;
-    private readonly IMemoryCache _cache;
+    private readonly IExternalJobSearchCache _cache;
     private readonly ILogger<AdzunaJobSearchService> _logger;
 
-    public AdzunaJobSearchService(IHttpClientFactory httpClientFactory, IOptions<AdzunaOptions> options, IMemoryCache cache, ILogger<AdzunaJobSearchService> logger)
+    public AdzunaJobSearchService(IHttpClientFactory httpClientFactory, IOptions<AdzunaOptions> options, IExternalJobSearchCache cache, ILogger<AdzunaJobSearchService> logger)
     {
         _httpClient = httpClientFactory.CreateClient("Adzuna");
         _options = options.Value;
@@ -45,7 +44,7 @@ public class AdzunaJobSearchService : IExternalJobSearchService
         var pageSize = Math.Clamp(request.PageSize, 1, 50);
         var cacheKey = $"adzuna:{request.Keywords?.Trim().ToLowerInvariant()}:{request.Location?.Trim().ToLowerInvariant()}:{page}:{pageSize}";
 
-        if (_cache.TryGetValue(cacheKey, out ExternalJobSearchResult? cached) && cached is not null)
+        if (_cache.TryGet(cacheKey, out var cached) && cached is not null)
         {
             return cached;
         }

@@ -1,4 +1,5 @@
 using System.Text;
+using AIRecruiter.API.Extensions;
 using AIRecruiter.API.Middleware;
 using AIRecruiter.Application;
 using AIRecruiter.Infrastructure;
@@ -8,10 +9,25 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog replaces the default ILogger provider only at the sink/output level — every existing
+// _logger.LogInformation/LogWarning/LogError call site keeps working unchanged. Console + a
+// daily-rolling file sink are always configured; the minimum level is read entirely from the
+// "Serilog" section in appsettings.json/appsettings.{Environment}.json, so Development vs. a
+// hypothetical Production level split needs no code change, only config.
+builder.Host.UseSerilog((context, services, config) => config
+    .ReadFrom.Configuration(context.Configuration)
+    .ReadFrom.Services(services)
+    .Enrich.FromLogContext());
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -38,6 +54,17 @@ builder.Services.AddSwaggerGen(options =>
 
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddApplicationServices();
+
+// Fail fast at startup (before app.Run()) with a specific, actionable error rather than
+// letting a missing/weak secret or connection string surface later as a cryptic runtime
+// exception on first login/first DB call. Optional integrations (Smtp/Cloudinary/Adzuna/etc.)
+// deliberately get no such validator — their existing IsConfigured-gated fallback behavior in
+// DependencyInjection.cs is unchanged and must keep working with nothing configured.
+builder.Services.AddSingleton<IValidateOptions<JwtOptions>, JwtOptionsValidator>();
+builder.Services.AddOptions<JwtOptions>().Bind(builder.Configuration.GetSection(JwtOptions.SectionName)).ValidateOnStart();
+
+builder.Services.AddSingleton<IValidateOptions<ConnectionStringsOptions>, ConnectionStringsOptionsValidator>();
+builder.Services.AddOptions<ConnectionStringsOptions>().Bind(builder.Configuration.GetSection(ConnectionStringsOptions.SectionName)).ValidateOnStart();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>() ?? new JwtOptions();
 
@@ -148,6 +175,18 @@ builder.Services.AddRateLimiter(options =>
     }));
 });
 
+var otlpEndpoint = builder.Configuration["OpenTelemetry:OtlpEndpoint"] ?? "http://localhost:4317";
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("AIRecruiter.API"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation()
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(otlpEndpoint)))
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddOtlpExporter(otlp => otlp.Endpoint = new Uri(otlpEndpoint)));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
@@ -171,6 +210,16 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Opt-in only, via an env var set solely in docker-compose.yml's "api" service — the ordinary
+// non-Docker workflow never sets AutoMigrate, so `dotnet run` behavior here is unchanged and
+// still relies on the developer running `dotnet ef database update` manually as documented.
+if (app.Configuration.GetValue<bool>("AutoMigrate"))
+{
+    using var migrateScope = app.Services.CreateScope();
+    var migrateDb = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await migrateDb.Database.MigrateAsync();
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -204,6 +253,21 @@ if (!app.Environment.IsDevelopment())
 app.UseRateLimiter();
 
 app.UseAuthentication();
+
+// After UseAuthentication so User is populated by the time this runs. Gives every request a
+// single structured log line (method, path, status code, duration) via Serilog's own built-in
+// middleware, enriched with the authenticated user id when present — never the JWT itself.
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        if (httpContext.User.Identity?.IsAuthenticated == true)
+        {
+            diagnosticContext.Set("UserId", httpContext.User.GetUserId());
+        }
+    };
+});
+
 app.UseAuthorization();
 
 // Liveness check that never touches the database — used by the Playwright webServer config

@@ -49,8 +49,19 @@ public static class DependencyInjection
         services.Configure<NominatimOptions>(configuration.GetSection(NominatimOptions.SectionName));
         services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
         services.Configure<RateLimitingOptions>(configuration.GetSection(RateLimitingOptions.SectionName));
+        services.Configure<RedisOptions>(configuration.GetSection(RedisOptions.SectionName));
 
         services.AddMemoryCache();
+
+        // Redis: present → a distributed cache/dedup provider is registered for the view-dedup
+        // and Adzuna-cache interfaces below; absent (the default) → both keep using today's
+        // in-memory implementations, completely unchanged.
+        var redisOptions = configuration.GetSection(RedisOptions.SectionName).Get<RedisOptions>() ?? new RedisOptions();
+        if (redisOptions.IsConfigured)
+        {
+            services.AddSingleton<StackExchange.Redis.IConnectionMultiplexer>(_ =>
+                StackExchange.Redis.ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
+        }
 
         services.AddScoped<ITokenService, TokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -71,7 +82,14 @@ public static class DependencyInjection
         services.AddScoped<IModerationService, ModerationService>();
         services.AddScoped<IAuditLogService, AuditLogService>();
         services.AddScoped<IAnalyticsService, AnalyticsService>();
-        services.AddSingleton<IViewDeduplicationService, InMemoryViewDeduplicationService>();
+        if (redisOptions.IsConfigured)
+        {
+            services.AddSingleton<IViewDeduplicationService, RedisViewDeduplicationService>();
+        }
+        else
+        {
+            services.AddSingleton<IViewDeduplicationService, InMemoryViewDeduplicationService>();
+        }
         services.AddScoped<ICandidateSearchService, CandidateSearchService>();
         services.AddSingleton<IIpRateLimiter, InMemoryIpRateLimiter>();
         services.AddScoped<IJobTemplateService, JobTemplateService>();
@@ -147,6 +165,15 @@ public static class DependencyInjection
         });
         if (adzunaOptions.IsConfigured)
         {
+            if (redisOptions.IsConfigured)
+            {
+                services.AddSingleton<IExternalJobSearchCache, RedisExternalJobSearchCache>();
+            }
+            else
+            {
+                services.AddSingleton<IExternalJobSearchCache, MemoryExternalJobSearchCache>();
+            }
+
             services.AddScoped<IExternalJobSearchService, AdzunaJobSearchService>();
         }
         else

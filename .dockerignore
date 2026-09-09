@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vs/
+**/.vscode/
+frontend/playwright-report/
+frontend/test-results/
+.git/
+.env
+Logs/

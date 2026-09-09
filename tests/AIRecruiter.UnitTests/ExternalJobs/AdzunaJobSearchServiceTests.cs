@@ -1,6 +1,7 @@
 using System.Net;
 using AIRecruiter.Application.DTOs.ExternalJobs;
 using AIRecruiter.Application.Exceptions;
+using AIRecruiter.Application.Interfaces;
 using AIRecruiter.Infrastructure.ExternalJobs;
 using AIRecruiter.Infrastructure.Options;
 using AIRecruiter.UnitTests.TestHelpers;
@@ -21,11 +22,13 @@ public class AdzunaJobSearchServiceTests
     }
     """;
 
-    private static AdzunaJobSearchService CreateSut(FakeHttpMessageHandler handler, IMemoryCache? cache = null)
+    private static IExternalJobSearchCache NewCache() => new MemoryExternalJobSearchCache(new MemoryCache(new MemoryCacheOptions()));
+
+    private static AdzunaJobSearchService CreateSut(FakeHttpMessageHandler handler, IExternalJobSearchCache? cache = null)
     {
         var factory = new FakeHttpClientFactory(handler, "https://api.adzuna.com/");
         var options = Options.Create(new AdzunaOptions { AppId = "id", AppKey = "key", Country = "gb" });
-        cache ??= new MemoryCache(new MemoryCacheOptions());
+        cache ??= NewCache();
         return new AdzunaJobSearchService(factory, options, cache, NullLogger<AdzunaJobSearchService>.Instance);
     }
 
@@ -46,7 +49,7 @@ public class AdzunaJobSearchServiceTests
     public async Task SearchAsync_SecondIdenticalCallWithin24h_UsesCacheAndSkipsHttp()
     {
         var handler = FakeHttpMessageHandler.ReturningJson(SampleJson);
-        var cache = new MemoryCache(new MemoryCacheOptions());
+        var cache = NewCache();
         var sut = CreateSut(handler, cache);
         var request = new ExternalJobSearchRequest("backend", "London", 1, 10);
 
@@ -79,7 +82,7 @@ public class AdzunaJobSearchServiceTests
         var handler = FakeHttpMessageHandler.ReturningJson(SampleJson);
         var factory = new FakeHttpClientFactory(handler, "https://api.adzuna.com/");
         var options = Options.Create(new AdzunaOptions { AppId = "", AppKey = "" });
-        var sut = new AdzunaJobSearchService(factory, options, new MemoryCache(new MemoryCacheOptions()), NullLogger<AdzunaJobSearchService>.Instance);
+        var sut = new AdzunaJobSearchService(factory, options, NewCache(), NullLogger<AdzunaJobSearchService>.Instance);
 
         Assert.False(sut.IsAvailable);
     }
@@ -90,7 +93,7 @@ public class AdzunaJobSearchServiceTests
         var handler = FakeHttpMessageHandler.ReturningJson(SampleJson);
         var factory = new FakeHttpClientFactory(handler, "https://api.adzuna.com/");
         var options = Options.Create(new AdzunaOptions { AppId = "", AppKey = "" });
-        var sut = new AdzunaJobSearchService(factory, options, new MemoryCache(new MemoryCacheOptions()), NullLogger<AdzunaJobSearchService>.Instance);
+        var sut = new AdzunaJobSearchService(factory, options, NewCache(), NullLogger<AdzunaJobSearchService>.Instance);
 
         await Assert.ThrowsAsync<ExternalServiceUnavailableException>(
             () => sut.SearchAsync(new ExternalJobSearchRequest("backend", "London", 1, 10)));

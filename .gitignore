@@ -21,3 +21,9 @@ frontend/test-results/
 # OS
 .DS_Store
 Thumbs.db
+
+# Docker (real local secrets — see .env.example for the template)
+.env
+
+# Logs (Serilog rolling file sink)
+Logs/

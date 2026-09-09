@@ -1,0 +1,54 @@
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317"   # OTLP gRPC — api's OpenTelemetry:OtlpEndpoint points here
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${SA_PASSWORD:?Set SA_PASSWORD in your .env file}
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: src/AIRecruiter.API/Dockerfile
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      AutoMigrate: "true"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=AIRecruiterDb;User Id=sa;Password=${SA_PASSWORD:?Set SA_PASSWORD in your .env file};TrustServerCertificate=True;"
+      Jwt__Secret: ${JWT_SECRET:?Set JWT_SECRET in your .env file}
+      Jwt__Issuer: AIRecruiter.API
+      Jwt__Audience: AIRecruiter.Client
+      Cors__AllowedOrigins__0: "http://localhost:8080"
+      OpenTelemetry__OtlpEndpoint: "http://jaeger:4317"
+    ports:
+      - "5087:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:5087/api
+    depends_on:
+      - api
+    ports:
+      - "8080:80"
+
+volumes:
+  sqlserver-data:

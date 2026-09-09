@@ -7,6 +7,7 @@ namespace AIRecruiter.UnitTests.Integration;
 // Each test gets its own factory/server/database — the rate-limiter policies partition by IP
 // (loopback, for an in-process TestServer) with a real time window, so sharing one server
 // across tests would let an earlier test's requests exhaust a later test's budget.
+[Collection("WebHost")]
 public class RateLimitingTests
 {
     [Fact]

@@ -652,6 +652,42 @@ public class AppDbContext : DbContext
             .Property(t => t.RevokedAtUtc)
             .IsConcurrencyToken();
 
+        // --- Performance indexes (purely additive — no existing index/column touched).
+        // Each backs a specific .Where/.OrderBy pair found in the real service code; see
+        // the AddPerformanceIndexes migration for the full rationale. ---
+        modelBuilder.Entity<JobPosting>()
+            .HasIndex(j => new { j.Status, j.ModerationStatus, j.CreatedAt });
+
+        modelBuilder.Entity<JobPosting>()
+            .HasIndex(j => new { j.CompanyId, j.Status, j.ModerationStatus, j.CreatedAt });
+
+        modelBuilder.Entity<JobPosting>()
+            .HasIndex(j => new { j.RecruiterProfileId, j.CreatedAt });
+
+        modelBuilder.Entity<JobApplication>()
+            .HasIndex(a => new { a.JobPostingId, a.CreatedAt });
+
+        modelBuilder.Entity<JobApplication>()
+            .HasIndex(a => new { a.CandidateProfileId, a.CreatedAt });
+
+        modelBuilder.Entity<Message>()
+            .HasIndex(m => new { m.JobApplicationId, m.CreatedAt });
+
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.UserId, n.CreatedAt });
+
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.UserId, n.IsRead });
+
+        modelBuilder.Entity<Interview>()
+            .HasIndex(i => new { i.JobApplicationId, i.CreatedAt });
+
+        modelBuilder.Entity<Interview>()
+            .HasIndex(i => new { i.Status, i.ScheduledStartUtc });
+
+        modelBuilder.Entity<AuditLogEntry>()
+            .HasIndex(e => new { e.ActorUserId, e.TimestampUtc });
+
         foreach (var entityType in modelBuilder.Model.GetEntityTypes())
         {
             foreach (var property in entityType.GetProperties())
